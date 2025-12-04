@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+    xmlns:fx="http://javafx.com/fxml" fx:controller="com.spiga.ui.MainController" prefHeight="900.0" prefWidth="1200.0">
+
+    <top>
+        <ToolBar>
+            <Button text="Add Drone" onAction="#handleAddDrone"/>
+            <Button text="Add Boat" onAction="#handleAddBoat"/>
+            <Button text="Add Sub" onAction="#handleAddSub"/>
+            <Button text="Select All" onAction="#handleSelectAll"/>
+            <Separator />
+            <Button text="Start Mission" onAction="#handleStartMission"/>
+            <Separator />
+            <Button fx:id="btnPlayPause" text="Play" onAction="#handlePlayPause"/>
+            <Label text="Speed:" />
+            <Slider fx:id="sliderSpeed" min="0.1" max="5.0" value="1.0" />
+        </ToolBar>
+    </top>
+
+    <left>
+        <fx:include fx:id="sidebar" source="Sidebar.fxml" />
+    </left>
+
+    <right>
+        <fx:include fx:id="missionPanel" source="MissionPanel.fxml" />
+    </right>
+
+    <center>
+        <SplitPane orientation="VERTICAL" dividerPositions="0.65">
+            <!-- Top: Map View (X, Y) - Compact with Scrollbars -->
+            <ScrollPane hbarPolicy="ALWAYS" vbarPolicy="ALWAYS" fitToWidth="false" fitToHeight="false" pannable="true">
+                <StackPane fx:id="mapContainer" style="-fx-background-color: #001133;">
+                    <!-- MapCanvas added dynamically -->
+                </StackPane>
+            </ScrollPane>
+
+            <!-- Bottom: Profile View (X, Z) - Larger -->
+            <StackPane fx:id="sideViewContainer" style="-fx-background-color: black;">
+                <Label text="Profile View (Side)" style="-fx-text-fill: white; -fx-padding: 5;" StackPane.alignment="TOP_LEFT"/>
+                <!-- SideViewCanvas added dynamically -->
+            </StackPane>
+        </SplitPane>
+    </center>
+
+    <bottom>
+        <HBox spacing="10" style="-fx-padding: 5;">
+            <Label text="Status: Ready" fx:id="lblStatus"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>

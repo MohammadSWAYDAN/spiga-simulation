@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx"
+    xmlns:fx="http://javafx.com/fxml" fx:controller="com.spiga.ui.MissionController" spacing="8" style="-fx-padding: 8; -fx-background-color: #e0e0e0; -fx-border-color: #cccccc; -fx-border-width: 0 0 0 1;" prefWidth="300" minWidth="300">
+
+    <Label text="Missions" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+
+    <ListView fx:id="listMissions" VBox.vgrow="ALWAYS" prefHeight="120"/>
+
+    <Separator />
+
+    <Label text="New Mission" style="-fx-font-weight: bold;"/>
+    <TextField fx:id="txtMissionTitle" promptText="Mission Title"/>
+    <ComboBox fx:id="comboMissionType" promptText="Select Type" maxWidth="Infinity"/>
+    <Button fx:id="btnSetTarget" text="Set Target" onAction="#handleSetTarget" maxWidth="Infinity" style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+    <Label fx:id="lblTargetCoords" text="Target: Not Set" style="-fx-font-size: 10px;"/>
+    <Button text="Create Mission" onAction="#handleCreateMission" maxWidth="Infinity" style="-fx-background-color: #2196F3; -fx-text-fill: white;"/>
+
+    <Separator />
+
+    <Label text="Mission Details" style="-fx-font-weight: bold;"/>
+    <Label fx:id="lblMissionStatus" text="Status: -" wrapText="true"/>
+
+</VBox>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx"
+    xmlns:fx="http://javafx.com/fxml" fx:controller="com.spiga.ui.SidebarController" spacing="10" style="-fx-padding: 10; -fx-background-color: #f0f0f0;" prefWidth="250" minWidth="250">
+
+    <Label text="Fleet Assets" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+    <ListView fx:id="listAssets" VBox.vgrow="ALWAYS"/>
+
+    <Separator />
+
+    <Label text="Asset Details" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+    <GridPane hgap="5" vgap="5">
+        <Label text="ID:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+        <Label fx:id="lblId" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+        <Label text="Type:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+        <Label fx:id="lblType" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+        <Label text="State:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+        <Label fx:id="lblState" text="-" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+        <Label text="Battery:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+        <ProgressBar fx:id="progressBattery" progress="0.0" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+    </GridPane>
+
+</VBox>
