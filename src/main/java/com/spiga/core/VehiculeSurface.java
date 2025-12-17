@@ -16,6 +16,36 @@ public class VehiculeSurface extends ActifMarin {
     }
 
     @Override
+    protected double getWeatherImpact(com.spiga.environment.Weather w) {
+        double impact = 1.0;
+        // Sea State + Wind Sensitivity
+        // Wind affects surface vessels
+        if (w.getWindSpeed() > 30) {
+            impact += (w.getWindSpeed() - 30) * 0.005;
+        }
+        // Waves
+        if (w.getSeaWaveHeight() > 1.0) {
+            impact += (w.getSeaWaveHeight() - 1.0) * 0.2; // Significant impact
+        }
+        return impact;
+    }
+
+    @Override
+    protected void clampPosition() {
+        if (Math.abs(z) > 0.001) {
+            z = 0; // Force surface
+        }
+    }
+
+    @Override
+    public void deplacer(double targetX, double targetY, double targetZ) {
+        if (Math.abs(targetZ) > 0.1) {
+            System.out.println("⚠️ " + id + ": Rejet cible Z=" + targetZ + ". Force à 0m (Surface).");
+        }
+        super.deplacer(targetX, targetY, 0.0);
+    }
+
+    @Override
     public double getConsommation() {
         return 0.02; // 2% par heure
     }

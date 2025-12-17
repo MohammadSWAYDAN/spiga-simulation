@@ -20,9 +20,9 @@ public class DroneLogistique extends ActifAerien {
 
     @Override
     public double getConsommation() {
-        // Consommation augmente avec la charge
-        double facteurCharge = 1.0 + (chargeActuelle / chargeUtileMax) * 0.5;
-        return 0.125 * facteurCharge; // 12.5% base par heure
+        // FAST BATTERY DEMO
+        double baseParams = 12.0;
+        return baseParams + (chargeActuelle * 0.1);
     }
 
     public void charger(double poids) {

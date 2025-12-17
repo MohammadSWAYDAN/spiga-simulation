@@ -31,6 +31,8 @@ public class SidebarController {
     private Label lblPosition;
     @FXML
     private Label lblMission;
+    @FXML
+    private Label lblSpeed;
 
     private GestionnaireEssaim gestionnaire;
     private ActifMobile selectedAsset;
@@ -167,6 +169,10 @@ public class SidebarController {
                 } else {
                     lblMission.setText("Mission: None");
                 }
+            }
+
+            if (lblSpeed != null) {
+                lblSpeed.setText(String.format("%.1f km/h", asset.getCurrentSpeed()));
             }
         });
     }

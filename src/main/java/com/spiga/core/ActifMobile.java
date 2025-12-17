@@ -57,16 +57,25 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         this.selected = false;
     }
 
-    public void update(double dt) {
+    // Updated update signature to include Weather
+    public void update(double dt, com.spiga.environment.Weather weather) {
         if (state == AssetState.MOVING_TO_TARGET || state == AssetState.EXECUTING_MISSION
                 || state == AssetState.RETURNING_TO_BASE) {
-            moveTowards(targetX, targetY, targetZ, dt);
-            updateBattery(dt);
+            moveTowards(targetX, targetY, targetZ, dt, weather); // Pass weather for drag
+            updateBattery(dt, weather);
         }
+        clampPosition(); // Force constraints every frame
         checkBatteryState();
     }
 
-    public void moveTowards(double targetX, double targetY, double targetZ, double dt) {
+    /**
+     * Enforces strict physical domain constraints.
+     * e.g. Surface vessels must have Z=0.
+     */
+    protected abstract void clampPosition();
+
+    public void moveTowards(double targetX, double targetY, double targetZ, double dt,
+            com.spiga.environment.Weather weather) {
         double dx = targetX - x;
         double dy = targetY - y;
         double dz = targetZ - z;
@@ -78,6 +87,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
             z = targetZ;
             velocityX = 0;
             velocityY = 0;
+            velocityZ = 0; // Fix missing reset
 
             if (state == AssetState.RETURNING_TO_BASE) {
                 state = AssetState.RECHARGING;
@@ -93,10 +103,22 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
             double dirY = dy / distance;
             double dirZ = dz / distance;
 
-            velocityX = dirX * vitesseMax;
-            velocityY = dirY * vitesseMax;
-            double velocityZ = dirZ * vitesseMax;
-            this.velocityZ = velocityZ;
+            // Apply Weather Drag
+            double effectiveSpeed = vitesseMax;
+            if (weather != null) {
+                // Simple drag model: 1% speed loss per 10 km/h of wind
+                double dragFactor = 1.0 - (weather.getWindSpeed() / 1000.0);
+                if (weather.getSeaWaveHeight() > 0 && this instanceof ActifMarin) {
+                    dragFactor -= weather.getSeaWaveHeight() * 0.05; // 5% per meter
+                }
+                if (dragFactor < 0.1)
+                    dragFactor = 0.1; // Min speed
+                effectiveSpeed *= dragFactor;
+            }
+
+            velocityX = dirX * effectiveSpeed;
+            velocityY = dirY * effectiveSpeed;
+            velocityZ = dirZ * effectiveSpeed; // Corrected assignment
 
             x += velocityX * dt;
             y += velocityY * dt;
@@ -104,14 +126,24 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         }
     }
 
-    public void updateBattery(double dt) {
+    public void updateBattery(double dt, com.spiga.environment.Weather weather) {
         if (state == AssetState.EXECUTING_MISSION || state == AssetState.MOVING_TO_TARGET
                 || state == AssetState.RETURNING_TO_BASE) {
-            // Fix: Consumption is per hour, dt is seconds -> divide by 3600
+            // Base Consumption
             double consumption = (getConsommation() / 3600.0) * dt;
+
+            // Speed Factor
             double speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY + velocityZ * velocityZ);
             double speedFactor = 1.0 + (speed / vitesseMax);
-            consumption *= speedFactor;
+
+            // Weather Factor Integration
+            // Weather Factor Integration (Delegated to subclasses)
+            double weatherFactor = 1.0;
+            if (weather != null) {
+                weatherFactor = getWeatherImpact(weather);
+            }
+
+            consumption *= speedFactor * weatherFactor;
 
             autonomieActuelle -= consumption;
             if (autonomieActuelle < 0)
@@ -177,6 +209,14 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
 
     public abstract double getConsommation();
 
+    /**
+     * Calculates impact of weather on consumption.
+     * 1.0 = No impact. >1.0 = Increased consumption.
+     */
+    protected double getWeatherImpact(com.spiga.environment.Weather w) {
+        return 1.0; // Default implementation
+    }
+
     @Override
     public void deplacer(double targetX, double targetY, double targetZ) {
         setTarget(targetX, targetY, targetZ);
@@ -236,6 +276,10 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     }
 
     // Getters
+    public double getCurrentSpeed() {
+        return Math.sqrt(velocityX * velocityX + velocityY * velocityY + velocityZ * velocityZ);
+    }
+
     public String getId() {
         return id;
     }

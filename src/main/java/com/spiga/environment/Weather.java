@@ -9,6 +9,20 @@ public class Weather {
         this.windSpeed = windSpeed;
         this.windDirection = windDirection;
         this.rainIntensity = rainIntensity;
+        this.seaWaveHeight = 0.0; // Default
+    }
+
+    // Manual Control Setters
+    public void setWindSpeed(double windSpeed) {
+        this.windSpeed = windSpeed;
+    }
+
+    public void setRainIntensity(double rainIntensity) {
+        this.rainIntensity = rainIntensity;
+    }
+
+    public void setSeaWaveHeight(double h) {
+        this.seaWaveHeight = h;
     }
 
     public double getWindSpeed() {
@@ -21,5 +35,12 @@ public class Weather {
 
     public double getRainIntensity() {
         return rainIntensity;
+    }
+
+    // New Feature
+    private double seaWaveHeight;
+
+    public double getSeaWaveHeight() {
+        return seaWaveHeight;
     }
 }

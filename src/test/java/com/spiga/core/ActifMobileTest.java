@@ -29,7 +29,7 @@ public class ActifMobileTest {
     public void testRecharge() {
         DroneReconnaissance drone = new DroneReconnaissance("D1", 0, 0, 100);
         drone.demarrer();
-        drone.update(2.0); // Partial drain
+        drone.update(2.0, null); // Partial drain
 
         drone.recharger();
         assertEquals(drone.getAutonomieMax(), drone.getAutonomieActuelle(), 0.01);

@@ -2,13 +2,11 @@ package com.spiga.ui;
 
 import com.spiga.core.*;
 import com.spiga.management.*;
-import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.geometry.Insets;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Optional;
 
 /**
@@ -21,8 +19,7 @@ public class MissionController {
     private ListView<Mission> listMissions;
     @FXML
     private TextField txtMissionTitle;
-    @FXML
-    private ComboBox<String> comboMissionType;
+    // ComboBox removed
     @FXML
     private Label lblMissionStatus;
     @FXML
@@ -48,9 +45,6 @@ public class MissionController {
 
     @FXML
     public void initialize() {
-        // Default items if nothing selected
-        comboMissionType.setItems(FXCollections.observableArrayList("Sélectionnez un actif..."));
-
         if (listMissions != null) {
             listMissions.setCellFactory(param -> new ListCell<Mission>() {
                 @Override
@@ -70,34 +64,11 @@ public class MissionController {
                 }
             });
         }
-
         updateTargetLabel();
     }
 
     public void onAssetSelected(ActifMobile asset) {
-        if (asset == null) {
-            comboMissionType.setItems(FXCollections.observableArrayList("Sélectionnez un actif..."));
-            return;
-        }
-
-        List<String> missions = new ArrayList<>();
-        if (asset instanceof ActifAerien) {
-            missions.add("Surveillance");
-            missions.add("Recherche et Sauvetage");
-            missions.add("Logistique");
-        } else if (asset instanceof VehiculeSurface) {
-            missions.add("Surveillance");
-            missions.add("Recherche et Sauvetage");
-            missions.add("Navigation");
-        } else if (asset instanceof VehiculeSousMarin) {
-            missions.add("Navigation");
-            missions.add("Surveillance");
-        }
-
-        comboMissionType.setItems(FXCollections.observableArrayList(missions));
-        if (!missions.isEmpty()) {
-            comboMissionType.setValue(missions.get(0));
-        }
+        // Logic moved to Creation time
     }
 
     @FXML
@@ -221,38 +192,44 @@ public class MissionController {
             return;
 
         String title = txtMissionTitle.getText();
-        String type = comboMissionType.getValue();
-
-        if (title == null || title.isEmpty() || type == null) {
-            lblMissionStatus.setText("❌ Titre et type requis");
-            return;
-        }
-
-        Mission mission = createMissionByType(title, type);
-        if (mission == null) {
-            lblMissionStatus.setText("❌ Type de mission invalide");
-            return;
-        }
-        mission.setTarget(targetX, targetY, targetZ);
-
         List<ActifMobile> selectedAssets = mainController.getSelectedAssets();
 
-        if (selectedAssets.isEmpty()) {
-            // Generic Creation
-            mission.setStatut(Mission.StatutMission.PLANIFIEE);
-            if (listMissions != null)
-                listMissions.getItems().add(mission);
-            lblMissionStatus.setText("✅ Mission planifiée (Non assignée)");
-        } else {
-            // Immediate Assignment
-            if (!validatePhysicalConstraints(selectedAssets, targetZ))
-                return;
-
-            mainController.assignMissionToSelected(mission);
-            if (listMissions != null)
-                listMissions.getItems().add(mission);
-            lblMissionStatus.setText("✅ Mission créée et assignée");
+        if (title == null || title.isEmpty()) {
+            lblMissionStatus.setText("❌ Titre requis");
+            return;
         }
+
+        if (selectedAssets.isEmpty()) {
+            lblMissionStatus.setText("❌ Sélectionnez un actif pour déduire le type");
+            return;
+        }
+
+        // Auto-detect type based on FIRST selected asset
+        ActifMobile firstAsset = selectedAssets.get(0);
+        Mission mission = null;
+
+        if (firstAsset instanceof DroneReconnaissance) {
+            mission = new MissionSurveillanceMaritime(title);
+        } else if (firstAsset instanceof DroneLogistique) {
+            mission = new MissionLogistique(title);
+        } else if (firstAsset instanceof VehiculeSurface) {
+            mission = new MissionSurveillanceMaritime(title + " (Surface)"); // Reuse or new subclass
+        } else if (firstAsset instanceof VehiculeSousMarin) {
+            mission = new MissionLogistique(title + " (Sous-marin)"); // Reuse or new subclass
+        } else {
+            mission = new MissionLogistique(title); // Fallback
+        }
+
+        mission.setTarget(targetX, targetY, targetZ);
+
+        // Immediate Assignment
+        if (!validatePhysicalConstraints(selectedAssets, targetZ))
+            return;
+
+        mainController.assignMissionToSelected(mission);
+        if (listMissions != null)
+            listMissions.getItems().add(mission);
+        lblMissionStatus.setText("✅ Mission '" + mission.getClass().getSimpleName() + "' créée");
 
         txtMissionTitle.clear();
         if (mainController != null)
@@ -279,21 +256,6 @@ public class MissionController {
             }
         }
         return true;
-    }
-
-    private Mission createMissionByType(String title, String type) {
-        switch (type) {
-            case "Surveillance":
-                return new MissionSurveillanceMaritime(title);
-            case "Logistique":
-                return new MissionLogistique(title);
-            case "Recherche et Sauvetage":
-                return new MissionRechercheEtSauvetage(title);
-            case "Navigation":
-                return new MissionLogistique(title);
-            default:
-                return null;
-        }
     }
 
     public void setMissionTarget(double x, double y) {

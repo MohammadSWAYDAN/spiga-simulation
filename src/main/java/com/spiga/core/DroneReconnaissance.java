@@ -18,7 +18,7 @@ public class DroneReconnaissance extends ActifAerien {
 
     @Override
     public double getConsommation() {
-        return 0.25; // 25% par heure
+        return 12.0; // 1200% per hour -> ~5 mins autonomy
     }
 
     public double getRayonSurveillance() {

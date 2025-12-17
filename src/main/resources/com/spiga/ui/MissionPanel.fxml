@@ -14,7 +14,7 @@
 
     <Label text="New Mission" style="-fx-font-weight: bold;"/>
     <TextField fx:id="txtMissionTitle" promptText="Mission Title"/>
-    <ComboBox fx:id="comboMissionType" promptText="Select Type" maxWidth="Infinity"/>
+    <!-- Type selection removed - Automated based on asset -->
     <Button fx:id="btnSetTarget" text="Set Target" onAction="#handleSetTarget" maxWidth="Infinity" style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
     <Label fx:id="lblTargetCoords" text="Target: Not Set" style="-fx-font-size: 10px;"/>
     <Button text="Create Mission" onAction="#handleCreateMission" maxWidth="Infinity" style="-fx-background-color: #2196F3; -fx-text-fill: white;"/>

@@ -26,6 +26,12 @@ public class MainController {
     @FXML
     private Slider sliderSpeed;
     @FXML
+    private Slider sliderWind;
+    @FXML
+    private Slider sliderRain;
+    @FXML
+    private Slider sliderWaves;
+    @FXML
     private SidebarController sidebarController;
     @FXML
     private MissionController missionPanelController;
@@ -68,6 +74,26 @@ public class MainController {
             sliderSpeed.valueProperty().addListener((obs, oldVal, newVal) -> {
                 simulationService.setTimeScale(newVal.doubleValue());
                 updateStatusLabel();
+            });
+        }
+
+        // Weather Binds
+        if (sliderWind != null) {
+            sliderWind.valueProperty().addListener((obs, o, n) -> {
+                if (simulationService.getWeather() != null)
+                    simulationService.getWeather().setWindSpeed(n.doubleValue());
+            });
+        }
+        if (sliderRain != null) {
+            sliderRain.valueProperty().addListener((obs, o, n) -> {
+                if (simulationService.getWeather() != null)
+                    simulationService.getWeather().setRainIntensity(n.doubleValue());
+            });
+        }
+        if (sliderWaves != null) {
+            sliderWaves.valueProperty().addListener((obs, o, n) -> {
+                if (simulationService.getWeather() != null)
+                    simulationService.getWeather().setSeaWaveHeight(n.doubleValue());
             });
         }
 
@@ -234,7 +260,18 @@ public class MainController {
 
     @FXML
     private void handleAddDrone() {
-        promptForCreationMethod("Ajouter Drone", "DRONE");
+        // Ask for Drone Type
+        List<String> choices = List.of("Reconnaissance", "Logistique");
+        ChoiceDialog<String> dialog = new ChoiceDialog<>("Reconnaissance", choices);
+        dialog.setTitle("Choix du Drone");
+        dialog.setHeaderText("Sélectionnez le type de drone :");
+        dialog.setContentText("Type:");
+
+        Optional<String> result = dialog.showAndWait();
+        result.ifPresent(typeChoice -> {
+            String subType = typeChoice.equals("Reconnaissance") ? "DRONE_RECON" : "DRONE_LOG";
+            promptForCreationMethod("Ajouter Drone (" + typeChoice + ")", subType);
+        });
     }
 
     @FXML
@@ -279,8 +316,8 @@ public class MainController {
                 enableMissionTargetMode();
                 lblStatus.setText("Cliquez sur la carte pour placer l'actif...");
             } else if ("MANUAL".equals(mode)) {
-                if ("DRONE".equals(type))
-                    promptForDroneManual();
+                if (type.startsWith("DRONE"))
+                    promptForDroneManual(type);
                 else if ("BOAT".equals(type))
                     promptForBoatManual();
                 else if ("SUB".equals(type))
@@ -290,13 +327,17 @@ public class MainController {
     }
 
     private void createAssetAt(String type, double x, double y) {
-        if ("DRONE".equals(type)) {
-            promptForZ("Altitude Drone", "Entrez l'altitude (Z > 0):", 100.0).ifPresent(z -> {
-                if (z <= 0) {
-                    showAlert("Erreur", "Altitude > 0 requise.");
+        if (type.startsWith("DRONE")) {
+            promptForZ("Altitude Drone", "Entrez l'altitude [1 - 150]:", 50.0).ifPresent(z -> {
+                if (z < 1 || z > 150) {
+                    showAlert("Erreur", "Altitude hors limite [1 - 150].");
                     return;
                 }
-                gestionnaire.ajouterActif(new DroneReconnaissance("DR-" + System.currentTimeMillis(), x, y, z));
+                if ("DRONE_RECON".equals(type)) {
+                    gestionnaire.ajouterActif(new DroneReconnaissance("DR-R-" + System.currentTimeMillis(), x, y, z));
+                } else {
+                    gestionnaire.ajouterActif(new DroneLogistique("DR-L-" + System.currentTimeMillis(), x, y, z));
+                }
             });
         } else if ("BOAT".equals(type)) {
             gestionnaire.ajouterActif(new NavirePatrouille("NV-" + System.currentTimeMillis(), x, y));
@@ -328,13 +369,17 @@ public class MainController {
         return Optional.empty();
     }
 
-    private void promptForDroneManual() {
+    private void promptForDroneManual(String type) {
         promptForCoordinates("Ajouter Drone", "Zone Aérienne (Z > 0)", (x, y, z) -> {
             if (z <= 0) {
                 showAlert("Erreur", "Altitude > 0 requise.");
                 return;
             }
-            gestionnaire.ajouterActif(new DroneReconnaissance("DR-" + System.currentTimeMillis(), x, y, z));
+            if ("DRONE_RECON".equals(type)) {
+                gestionnaire.ajouterActif(new DroneReconnaissance("DR-R-" + System.currentTimeMillis(), x, y, z));
+            } else {
+                gestionnaire.ajouterActif(new DroneLogistique("DR-L-" + System.currentTimeMillis(), x, y, z));
+            }
         });
     }
 
@@ -399,8 +444,35 @@ public class MainController {
 
             if (selectedMission != null && !selectedAssets.isEmpty()) {
 
+                // STRICT COMPATIBILITY CHECK
+                for (ActifMobile asset : selectedAssets) {
+                    boolean compatible = false;
+                    String title = selectedMission.getTitre();
+
+                    if (asset instanceof DroneReconnaissance && title.contains("Surveillance"))
+                        compatible = true;
+                    else if (asset instanceof DroneLogistique && title.contains("Logistique"))
+                        compatible = true;
+                    else if (asset instanceof VehiculeSurface && title.contains("Surface"))
+                        compatible = true;
+                    else if (asset instanceof VehiculeSousMarin && title.contains("Underwater"))
+                        compatible = true;
+                    // Fallback for generic movement "Déplacement" which any can do? Use
+                    // "Déplacement" for explicit move commands
+                    else if (title.contains("Déplacement"))
+                        compatible = true;
+
+                    if (!compatible) {
+                        showAlert("Erreur de Compatibilité",
+                                "L'actif " + asset.getId() + " (" + asset.getClass().getSimpleName() +
+                                        ") ne peut pas effectuer la mission '" + title + "'.\n" +
+                                        "Types requis: Surveillance->Drone, Logistique->Cargo, Surface->Boat.");
+                        return; // Abort whole operation
+                    }
+                }
+
                 if (selectedAssets.size() == 1) {
-                    // Single Asset - Direct Assignment (Clone if needed)
+                    // Single Asset
                     Mission missionToStart = selectedMission;
                     if (selectedMission.getStatut() != Mission.StatutMission.PLANIFIEE) {
                         missionToStart = selectedMission.copy();
@@ -409,36 +481,24 @@ public class MainController {
                     gestionnaire.demarrerMission(missionToStart, selectedAssets);
                     lblStatus.setText("Mission '" + missionToStart.getTitre() + "' démarrée.");
                 } else {
-                    // Multi Asset - Formation Assignment
+                    // Multi Asset - Formation
                     double centerX = selectedMission.getTargetX();
                     double centerY = selectedMission.getTargetY();
                     double centerZ = selectedMission.getTargetZ();
-                    double radius = 30.0 * Math.max(1, selectedAssets.size() / 2.0); // Dynamic radius
+                    double radius = 30.0 * Math.max(1, selectedAssets.size() / 2.0);
                     double angleStep = 2 * Math.PI / selectedAssets.size();
 
                     for (int i = 0; i < selectedAssets.size(); i++) {
                         ActifMobile asset = selectedAssets.get(i);
-
-                        // Calculate formation position
                         double angle = i * angleStep;
                         double offsetX = radius * Math.cos(angle);
                         double offsetY = radius * Math.sin(angle);
 
-                        // Clone mission for this specific asset
                         Mission missionClone = selectedMission.copy();
                         missionClone.setTarget(centerX + offsetX, centerY + offsetY, centerZ);
-
-                        // Add to list if it's a new plan (optional, maybe clutter? Let's add for
-                        // visibility)
-                        // missionPanelController.addMission(missionClone);
-                        // Actually, let's NOT add every single formation clone to the list to avoid
-                        // spam.
-                        // We just start it.
-
                         gestionnaire.demarrerMission(missionClone, List.of(asset));
                     }
-                    lblStatus.setText(
-                            "Mission de groupe démarrée (Formation Cercle) pour " + selectedAssets.size() + " actifs.");
+                    lblStatus.setText("Mission de groupe démarrée pour " + selectedAssets.size() + " actifs.");
                 }
                 missionPanelController.refresh();
             } else {

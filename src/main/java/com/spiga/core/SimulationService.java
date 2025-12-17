@@ -3,11 +3,11 @@ package com.spiga.core;
 import com.spiga.management.GestionnaireEssaim;
 import com.spiga.environment.Obstacle;
 import com.spiga.environment.Weather;
+import com.spiga.management.Communication;
 import com.spiga.environment.ZoneOperation;
 import javafx.animation.AnimationTimer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 /**
  * SimulationService - PRODUCTION READY
@@ -20,6 +20,7 @@ public class SimulationService extends AnimationTimer {
     private static final double PUSH_FORCE = 2.0;
 
     private GestionnaireEssaim gestionnaire;
+    private Communication communication;
     private List<Obstacle> obstacles;
     private Weather weather;
     private ZoneOperation zone;
@@ -29,12 +30,13 @@ public class SimulationService extends AnimationTimer {
     private double accumulator = 0;
 
     // Weather Cycle
-    private double weatherTimer = 30.0;
-    private double weatherDuration = 30.0;
-    private Random random = new Random();
+    // private double weatherTimer = 30.0;
+    // private double weatherDuration = 30.0;
+    // private Random random = new Random();
 
     public SimulationService(GestionnaireEssaim gestionnaire, ZoneOperation zone) {
         this.gestionnaire = gestionnaire;
+        this.communication = new Communication(gestionnaire);
         this.zone = zone;
         this.obstacles = new ArrayList<>();
         this.weather = new Weather(10, 0, 0);
@@ -89,33 +91,40 @@ public class SimulationService extends AnimationTimer {
         updateAllAssets(fleet, dt);
         checkCollisions(fleet);
         checkBoundaries(fleet);
+        checkBoundaries(fleet);
         checkMissions(fleet);
         checkObstacles(fleet);
+
+        // Handle Mission Dispatching
+        communication.handleMissions();
     }
 
     private void updateWeather(double dt) {
-        weatherTimer -= dt;
-        if (weatherTimer <= 0) {
-            double wind = random.nextDouble() * 50;
-            double rain = random.nextDouble() * 100;
-            weather = new Weather(wind, random.nextDouble() * 360, rain);
-
-            weatherDuration = 30 + random.nextDouble() * 30;
-            weatherTimer = weatherDuration;
-        }
+        // Only auto-update if not in manual mode (simplified: if timer is positive)
+        // For now, we will disable random weather changes to allow manual control as
+        // requested.
+        // Users can set weather via getters/setters on the Weather object exposed by
+        // Service.
+        /*
+         * weatherTimer -= dt;
+         * if (weatherTimer <= 0) {
+         * double wind = random.nextDouble() * 50;
+         * double rain = random.nextDouble() * 100;
+         * weather = new Weather(wind, random.nextDouble() * 360, rain);
+         * 
+         * weatherDuration = 30 + random.nextDouble() * 30;
+         * weatherTimer = weatherDuration;
+         * }
+         */
     }
 
     private void updateAllAssets(List<ActifMobile> fleet, double dt) {
-        double weatherFactor = 1.0;
-        if (weather.getRainIntensity() > 50) {
-            weatherFactor = 0.8;
-        }
         if (weather.getWindSpeed() > 40) {
-            weatherFactor *= 0.9;
+            // weatherFactor *= 0.9; // Logic moved to ActifMobile.update
         }
 
         for (ActifMobile asset : fleet) {
-            asset.update(dt * weatherFactor);
+            asset.update(dt, weather);
         }
     }
 
@@ -236,6 +245,10 @@ public class SimulationService extends AnimationTimer {
 
     public Weather getWeather() {
         return weather;
+    }
+
+    public Communication getCommunication() {
+        return communication;
     }
 
     public void reset() {
