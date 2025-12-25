@@ -28,6 +28,12 @@ public class MapCanvas extends Canvas {
     private boolean missionTargetMode = false;
     private List<ActifMobile> lastFleet;
 
+    // --- Zoom & Pan Properties ---
+    private double scale = 1.0;
+    private double offsetX = 0;
+    private double offsetY = 0;
+    private double lastMouseX, lastMouseY;
+
     // Live coordinate tracking
     private double mouseWorldX = 0;
     private double mouseWorldY = 0;
@@ -42,28 +48,82 @@ public class MapCanvas extends Canvas {
     }
 
     private void setupMouseHandlers() {
+        // Zoom (Scroll)
+        setOnScroll(event -> {
+            double zoomFactor = 1.05;
+            double deltaY = event.getDeltaY();
+            if (deltaY < 0) {
+                zoomFactor = 1 / zoomFactor;
+            }
+
+            // Zoom centered on mouse
+            double mouseX = event.getX();
+            double mouseY = event.getY();
+
+            double newScale = scale * zoomFactor;
+            // Limit zoom
+            if (newScale < 0.1)
+                newScale = 0.1;
+            if (newScale > 10.0)
+                newScale = 10.0;
+
+            // Adjust offset to keep mouse pointed at same world coord
+            // worldX = (screenX - offsetX) / scale
+            // worldX must remain constant
+            // (mouseX - oldOffsetX) / oldScale = (mouseX - newOffsetX) / newScale
+            // newOffsetX = mouseX - (mouseX - oldOffsetX) * (newScale / oldScale)
+
+            offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
+            offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
+            scale = newScale;
+
+            draw(lastFleet != null ? lastFleet : new ArrayList<>(), null); // Redraw immediately
+            event.consume();
+        });
+
+        // Pan (Press & Drag)
+        setOnMousePressed(event -> {
+            lastMouseX = event.getX();
+            lastMouseY = event.getY();
+
+            if (!event.isSecondaryButtonDown()) { // Left click logic (handled in released or click usually)
+                // Consider moving selection logic here if needed, but click usually fine
+            }
+        });
+
+        setOnMouseDragged(event -> {
+            if (event.isSecondaryButtonDown() || event.isMiddleButtonDown()) { // Right/Middle drag to pan
+                double dx = event.getX() - lastMouseX;
+                double dy = event.getY() - lastMouseY;
+                offsetX += dx;
+                offsetY += dy;
+                lastMouseX = event.getX();
+                lastMouseY = event.getY();
+                draw(lastFleet != null ? lastFleet : new ArrayList<>(), null);
+            }
+            // Update coords
+            handleMouseMove(event);
+        });
+
         setOnMouseClicked(this::handleMouseClick);
         setOnMouseMoved(this::handleMouseMove);
         setOnMouseExited(e -> showCoordinates = false);
     }
 
     private void handleMouseMove(MouseEvent event) {
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
-        double maxY = (zone != null) ? zone.getMaxY() : 1000;
-
-        mouseWorldX = (event.getX() / getWidth()) * maxX;
-        mouseWorldY = (event.getY() / getHeight()) * maxY;
-        showCoordinates = missionTargetMode;
+        mouseWorldX = screenToWorldX(event.getX());
+        mouseWorldY = screenToWorldY(event.getY());
+        showCoordinates = true; // Always show coords for debug/zoom check
+        // Redraw if we want live cursor update (optional, heavy)
+        // draw(lastFleet != null ? lastFleet : new ArrayList<>(), null);
     }
 
     private void handleMouseClick(MouseEvent event) {
-        double x = event.getX();
-        double y = event.getY();
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
-        double maxY = (zone != null) ? zone.getMaxY() : 1000;
+        if (event.isSecondaryButtonDown())
+            return; // Ignore right click (Pan)
 
-        double worldX = (x / getWidth()) * maxX;
-        double worldY = (y / getHeight()) * maxY;
+        double worldX = screenToWorldX(event.getX());
+        double worldY = screenToWorldY(event.getY());
 
         if (missionTargetMode) {
             if (onMapClicked != null) {
@@ -78,13 +138,54 @@ public class MapCanvas extends Canvas {
                     selectSingleAsset(clicked);
                 }
             } else {
-                // Clicked on empty space - Notify listener for potential move command
                 if (onMapClicked != null) {
                     onMapClicked.accept(new double[] { worldX, worldY });
                 }
-                // Do NOT deselect automatically to allow click-to-move
             }
         }
+    }
+
+    // --- Metrics Transformations ---
+    private double worldToScreenX(double wx) {
+        // World 0..1000 -> Screen
+        double maxX = (zone != null) ? zone.getMaxX() : 1000;
+        // Base mapping: 0->0, maxX->Width. Then apply scale & offset
+        double baseScreenX = (wx / maxX) * getWidth();
+        // ACTUALLY: Let's assume World Coords ARE the pixels at scale 1.0 for
+        // simplicity?
+        // OR: Keep the projection logic.
+        // Let's keep projection: World(0..1000) maps to Screen(0..Width) at Scale 1.
+        return (baseScreenX * scale) + offsetX;
+    }
+
+    private double worldToScreenY(double wy) {
+        double maxY = (zone != null) ? zone.getMaxY() : 1000;
+        double baseScreenY = (wy / maxY) * getHeight();
+        return (baseScreenY * scale) + offsetY;
+    }
+
+    private double screenToWorldX(double sx) {
+        double maxX = (zone != null) ? zone.getMaxX() : 1000;
+        // sx = (base * scale) + offset => base = (sx - offset) / scale
+        // base = (wx / maxX) * W => wx = base * maxX / W
+        double baseScreenX = (sx - offsetX) / scale;
+        return (baseScreenX / getWidth()) * maxX;
+    }
+
+    private double screenToWorldY(double sy) {
+        double maxY = (zone != null) ? zone.getMaxY() : 1000;
+        double baseScreenY = (sy - offsetY) / scale;
+        return (baseScreenY / getHeight()) * maxY;
+    }
+
+    // Size scaler
+    private double scaleSize(double worldSize) {
+        // If worldSize is in world units (0..1000), we need to scale it to screen
+        // pixels
+        // 1 world unit = (Width / 1000) pixels
+        double maxX = (zone != null) ? zone.getMaxX() : 1000;
+        double pixelSizeAtScale1 = (worldSize / maxX) * getWidth();
+        return pixelSizeAtScale1 * scale;
     }
 
     public void deselectAll() {
@@ -104,8 +205,16 @@ public class MapCanvas extends Canvas {
 
         gc.clearRect(0, 0, getWidth(), getHeight());
 
+        // DEBUG LOG
+        if (assets.size() > 0)
+            System.out.println("DEBUG: MapCanvas Drawing " + assets.size() + " assets");
+
         drawBackground(gc);
         drawGrid(gc);
+
+        // Safety Zones (Underlay)
+        drawSafetyZones(gc, assets);
+
         drawObstacles(gc, obstacles);
 
         List<ActifMobile> underwater = assets.stream().filter(a -> a.getZ() < 0).collect(Collectors.toList());
@@ -118,18 +227,53 @@ public class MapCanvas extends Canvas {
 
         drawSelectionHighlights(gc);
 
-        if (showCoordinates && missionTargetMode) {
+        // Always draw coords if requested
+        if (showCoordinates) {
             drawLiveCoordinates(gc);
         }
     }
 
-    private void drawLiveCoordinates(GraphicsContext gc) {
-        String coords = String.format("X: %.0f  Y: %.0f", mouseWorldX, mouseWorldY);
+    private void drawSafetyZones(GraphicsContext gc, List<ActifMobile> assets) {
+        for (ActifMobile asset : assets) {
+            double cx = worldToScreenX(asset.getX());
+            double cy = worldToScreenY(asset.getY());
 
-        double boxW = 120;
+            // Safety Radius in World Units
+            // SimConfig.SAFETY_RADIUS is in PIXELS (from Spec/Assumption) or World Units?
+            // "50px" implies screen pixels usually, but in zoomable map, should be world
+            // units.
+            // Let's assume SimConfig values are WORLD UNITS (0..1000 range context).
+            double r = scaleSize(SimConfig.SAFETY_RADIUS);
+
+            // Check for violations to determine color
+            boolean violation = !SwarmValidator.isPlacementValid(asset.getX(), asset.getY(),
+                    assets.stream().filter(a -> a != asset).collect(Collectors.toList()));
+
+            // Actually SwarmValidator uses MIN_DISTANCE (50).
+            // Visualization should ideally match that.
+            // Let's verify: safety zone = personal space.
+
+            if (violation) {
+                gc.setFill(Color.rgb(255, 0, 0, 0.3)); // Red Alert
+                gc.setStroke(Color.RED);
+            } else {
+                gc.setFill(Color.rgb(0, 255, 0, 0.1)); // Safe Green
+                gc.setStroke(Color.rgb(0, 255, 0, 0.3));
+            }
+
+            gc.fillOval(cx - r, cy - r, r * 2, r * 2);
+            gc.strokeOval(cx - r, cy - r, r * 2, r * 2);
+        }
+    }
+
+    private void drawLiveCoordinates(GraphicsContext gc) {
+        String coords = String.format("X: %.0f  Y: %.0f | Zoom: %.1fx", mouseWorldX, mouseWorldY, scale);
+
+        double boxW = 200;
         double boxH = 30;
-        double boxX = Math.min(getWidth() - boxW - 10, Math.max(10, (mouseWorldX / 1000.0) * getWidth()));
-        double boxY = Math.max(10, (mouseWorldY / 1000.0) * getHeight() - 40);
+        // Position at bottom right
+        double boxX = getWidth() - boxW - 10;
+        double boxY = getHeight() - boxH - 10;
 
         gc.setFill(Color.rgb(0, 0, 0, 0.8));
         gc.fillRoundRect(boxX, boxY, boxW, boxH, 5, 5);
@@ -140,7 +284,7 @@ public class MapCanvas extends Canvas {
 
         gc.setFill(Color.WHITE);
         gc.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
-        gc.fillText(coords, boxX + 8, boxY + 20);
+        gc.fillText(coords, boxX + 10, boxY + 20);
     }
 
     private void drawBackground(GraphicsContext gc) {
@@ -154,22 +298,30 @@ public class MapCanvas extends Canvas {
     private void drawGrid(GraphicsContext gc) {
         gc.setStroke(Color.rgb(255, 255, 255, 0.15));
         gc.setLineWidth(0.5);
-        for (double i = 0; i < getWidth(); i += 50)
-            gc.strokeLine(i, 0, i, getHeight());
-        for (double i = 0; i < getHeight(); i += 50)
-            gc.strokeLine(0, i, getWidth(), i);
+
+        // Draw grid based on world coordinates (e.g. every 100 units)
+        double step = 100; // world units
+        double maxWorldX = 1000; // approx
+        double maxWorldY = 1000;
+
+        for (double wx = 0; wx <= maxWorldX; wx += step) {
+            double sx = worldToScreenX(wx);
+            gc.strokeLine(sx, 0, sx, getHeight()); // Vertical lines
+        }
+        for (double wy = 0; wy <= maxWorldY; wy += step) {
+            double sy = worldToScreenY(wy);
+            gc.strokeLine(0, sy, getWidth(), sy); // Horizontal lines
+        }
     }
 
     private void drawObstacles(GraphicsContext gc, List<Obstacle> obstacles) {
         if (obstacles == null)
             return;
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
-        double maxY = (zone != null) ? zone.getMaxY() : 1000;
 
         for (Obstacle obs : obstacles) {
-            double cx = (obs.getX() / maxX) * getWidth();
-            double cy = (obs.getY() / maxY) * getHeight();
-            double r = (obs.getRadius() / maxX) * getWidth();
+            double cx = worldToScreenX(obs.getX());
+            double cy = worldToScreenY(obs.getY());
+            double r = scaleSize(obs.getRadius());
 
             if (obs.getZ() < 0) {
                 gc.setFill(Color.rgb(47, 79, 79, 0.8));
@@ -192,12 +344,18 @@ public class MapCanvas extends Canvas {
     }
 
     private void drawAssetIcon(GraphicsContext gc, ActifMobile asset) {
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
-        double maxY = (zone != null) ? zone.getMaxY() : 1000;
+        double cx = worldToScreenX(asset.getX());
+        double cy = worldToScreenY(asset.getY());
 
-        double cx = (asset.getX() / maxX) * getWidth();
-        double cy = (asset.getY() / maxY) * getHeight();
-        double size = 15;
+        // Fixed icon size or scalable?
+        // Typically icons stay constant size while map zooms, OR they scale.
+        // User wants "real distance", so scaling icons might be better for "Circle
+        // drone".
+        // Let's scale "Circle drone" but keep labels readable.
+
+        double size = scaleSize(10); // 10 world units radius approx
+        if (size < 5)
+            size = 5; // Min size visibility
 
         Color color = Color.WHITE;
         String shape = "CIRCLE";
@@ -263,9 +421,10 @@ public class MapCanvas extends Canvas {
 
         String label = asset.getId();
         gc.setFont(LABEL_FONT);
-        double textWidth = label.length() * 6;
 
+        // Label position
         gc.setFill(Color.rgb(0, 0, 0, 0.5));
+        double textWidth = label.length() * 6;
         gc.fillRoundRect(cx + size, cy - 10, textWidth + 4, 14, 5, 5);
 
         gc.setFill(Color.WHITE);
@@ -273,23 +432,22 @@ public class MapCanvas extends Canvas {
     }
 
     private void drawSelectionHighlights(GraphicsContext gc) {
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
-        double maxY = (zone != null) ? zone.getMaxY() : 1000;
-
         for (ActifMobile asset : selectedAssets) {
-            double cx = (asset.getX() / maxX) * getWidth();
-            double cy = (asset.getY() / maxY) * getHeight();
+            double cx = worldToScreenX(asset.getX());
+            double cy = worldToScreenY(asset.getY());
+
+            double r = scaleSize(15);
 
             gc.setStroke(Color.CYAN);
             gc.setLineWidth(2);
             gc.setLineDashes(5);
-            gc.strokeOval(cx - 20, cy - 20, 40, 40);
+            gc.strokeOval(cx - r * 1.5, cy - r * 1.5, r * 3, r * 3);
             gc.setLineDashes(0);
 
             if (asset.getState() == ActifMobile.AssetState.MOVING_TO_TARGET ||
                     asset.getState() == ActifMobile.AssetState.EXECUTING_MISSION) {
-                double tx = (asset.getTargetX() / maxX) * getWidth();
-                double ty = (asset.getTargetY() / maxY) * getHeight();
+                double tx = worldToScreenX(asset.getTargetX());
+                double ty = worldToScreenY(asset.getTargetY());
                 gc.setStroke(Color.CYAN);
                 gc.setLineDashes(5);
                 gc.strokeLine(cx, cy, tx, ty);
@@ -304,6 +462,7 @@ public class MapCanvas extends Canvas {
             return null;
         for (ActifMobile asset : lastFleet) {
             double dist = Math.sqrt(Math.pow(asset.getX() - worldX, 2) + Math.pow(asset.getY() - worldY, 2));
+            // Hitbox in world units
             if (dist < 30) {
                 return asset;
             }

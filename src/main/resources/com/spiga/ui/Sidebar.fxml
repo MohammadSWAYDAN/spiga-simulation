@@ -28,5 +28,10 @@
         <Label text="Speed:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
         <Label fx:id="lblSpeed" text="-" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
     </GridPane>
+    
+    <Separator />
+    
+    <Label text="Alerts &amp; Logs" style="-fx-font-weight: bold; -fx-font-size: 14px; text-fill: red;"/>
+    <ListView fx:id="listAlerts" VBox.vgrow="ALWAYS" style="-fx-control-inner-background: #fff0f0;"/>
 
 </VBox>

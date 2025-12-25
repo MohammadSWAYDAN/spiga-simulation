@@ -89,17 +89,25 @@ public class SideViewCanvas extends Canvas {
         // 4. Draw Assets
         for (ActifMobile asset : assets) {
             double cx = (asset.getX() / 1000.0) * (w - AXIS_WIDTH) + AXIS_WIDTH;
-            double cy = mapZtoY(asset.getZ(), zeroY, h);
+            double cy; // Will be calculated after drawZ
 
             // Icon with glow
-            gc.setFill(Color.WHITE);
-            if (asset.getZ() > 0)
+            // Visual Offset Logic
+            // If it's an Air Asset (Z >= 0) but essentially at sea level,
+            // draw it slightly UP so it doesn't merge with the water line/boats.
+            double drawZ = asset.getZ();
+            if (asset instanceof com.spiga.core.ActifAerien && Math.abs(drawZ) < 5.0) {
+                drawZ = 10.0; // Visual lift only
+                gc.setFill(Color.RED); // Force Color Red for Air assets even if low
+            } else if (asset.getZ() > 0) {
                 gc.setFill(Color.RED);
-            else if (asset.getZ() == 0)
+            } else if (asset.getZ() == 0) {
                 gc.setFill(Color.BLUE);
-            else
+            } else {
                 gc.setFill(Color.LIME);
+            }
 
+            cy = mapZtoY(drawZ, zeroY, h);
             gc.fillOval(cx - 6, cy - 6, 12, 12);
             gc.setStroke(Color.WHITE);
             gc.setLineWidth(2);

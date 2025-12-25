@@ -33,6 +33,19 @@ public class SidebarController {
     private Label lblMission;
     @FXML
     private Label lblSpeed;
+    @FXML
+    private ListView<String> listAlerts;
+
+    public void addAlert(String message) {
+        if (listAlerts != null) {
+            Platform.runLater(() -> {
+                listAlerts.getItems().add(0, message); // Add to top
+                if (listAlerts.getItems().size() > 50) {
+                    listAlerts.getItems().remove(50); // Keep last 50
+                }
+            });
+        }
+    }
 
     private GestionnaireEssaim gestionnaire;
     private ActifMobile selectedAsset;

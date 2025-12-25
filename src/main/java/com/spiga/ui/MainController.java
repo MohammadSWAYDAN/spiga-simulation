@@ -9,6 +9,7 @@ import javafx.scene.layout.StackPane;
 import javafx.animation.AnimationTimer;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * MainController - PRODUCTION READY
@@ -46,6 +47,12 @@ public class MainController {
     private ZoneOperation zone;
     private boolean isPaused = false;
     private String pendingAssetType = null;
+
+    // ID Counters
+    private int countDroneRecon = 1;
+    private int countDroneLog = 1;
+    private int countBoat = 1;
+    private int countSub = 1;
 
     public void initialize() {
         gestionnaire = new GestionnaireEssaim();
@@ -122,10 +129,22 @@ public class MainController {
         uiUpdateTimer.start();
     }
 
+    private long frameCount = 0;
+
     private void updateUI() {
-        mapCanvas.draw(gestionnaire.getFlotte(), simulationService.getObstacles());
+        // simulationService.update(); // Removed if undefined, usually managed by timer
+        // or internal logic
+        List<ActifMobile> assets = gestionnaire.getFlotte();
+        // Use MapCanvas to draw
+        mapCanvas.draw(assets, simulationService.getObstacles());
         if (sideViewCanvas != null) {
-            sideViewCanvas.draw(gestionnaire.getFlotte(), simulationService.getObstacles());
+            sideViewCanvas.draw(assets, simulationService.getObstacles());
+        }
+
+        // Periodic Health Check (every ~60 frames or 1 sec)
+        frameCount++;
+        if (frameCount % 60 == 0) {
+            checkProximityAndAlert(assets);
         }
 
         if (sidebarController != null)
@@ -134,6 +153,72 @@ public class MainController {
             missionPanelController.refresh();
 
         updateStatusLabel();
+    }
+
+    private void checkProximityAndAlert(List<ActifMobile> assets) {
+        if (sidebarController == null) {
+            System.out.println("DEBUG: SidebarController is NULL inside checkProximityAndAlert");
+            return;
+        }
+
+        for (ActifMobile a1 : assets) {
+            // 1. Proximity Check
+            List<ActifMobile> others = assets.stream().filter(a -> a != a1).collect(Collectors.toList());
+            if (!SwarmValidator.isPlacementValid(a1.getX(), a1.getY(), others)) {
+                // STOP THE DRONE
+                if (a1.getState() != ActifMobile.AssetState.STOPPED) {
+                    a1.setState(ActifMobile.AssetState.STOPPED);
+                    a1.setTarget(a1.getX(), a1.getY(), a1.getZ()); // Reset Target
+
+                    String msg = "⚠️ " + a1.getId() + " Trop Proche! (ARRÊT)";
+                    sidebarController.addAlert(msg);
+                    System.out.println("DEBUG: Violation stop triggered for " + a1.getId());
+                }
+            }
+
+            // 2. Sea Level Alert & Block (Splashdown Protection)
+            if (a1 instanceof com.spiga.core.ActifAerien) {
+                // Splashdown Check
+                if (a1.getZ() <= 1.0) { // Tolerance < 1m
+                    if (a1.getState() != ActifMobile.AssetState.STOPPED) {
+                        a1.setState(ActifMobile.AssetState.STOPPED);
+                        a1.setZ(2.0); // Hover
+                        a1.setTarget(a1.getX(), a1.getY(), 2.0);
+
+                        String msg = "🌊 ALERTE MER: " + a1.getId() + " (ARRÊT)";
+                        sidebarController.addAlert(msg);
+                        System.out.println("DEBUG: Sea level stop triggered for " + a1.getId());
+                    }
+                }
+                // Max Altitude Check (150m)
+                if (a1.getZ() >= 150.0) {
+                    if (a1.getState() != ActifMobile.AssetState.STOPPED) {
+                        a1.setState(ActifMobile.AssetState.STOPPED);
+                        a1.setZ(149.0); // Clamp
+                        a1.setTarget(a1.getX(), a1.getY(), 149.0);
+
+                        String msg = "⚠️ PLAFOND (150m): " + a1.getId() + " (ARRÊT)";
+                        sidebarController.addAlert(msg);
+                        System.out.println("DEBUG: Max Altitude stop for " + a1.getId());
+                    }
+                }
+            }
+
+            // 3. Submarine Depth Constraints (-150m)
+            if (a1 instanceof com.spiga.core.VehiculeSousMarin) {
+                if (a1.getZ() <= -150.0) {
+                    if (a1.getState() != ActifMobile.AssetState.STOPPED) {
+                        a1.setState(ActifMobile.AssetState.STOPPED);
+                        a1.setZ(-149.0); // Clamp
+                        a1.setTarget(a1.getX(), a1.getY(), -149.0);
+
+                        String msg = "⚠️ FOND (-150m): " + a1.getId() + " (ARRÊT)";
+                        sidebarController.addAlert(msg);
+                        System.out.println("DEBUG: Max Depth stop for " + a1.getId());
+                    }
+                }
+            }
+        }
     }
 
     private void updateStatusLabel() {
@@ -327,6 +412,17 @@ public class MainController {
     }
 
     private void createAssetAt(String type, double x, double y) {
+        // --- SAFETY CHECK ---
+        if (!SwarmValidator.isPlacementValid(x, y, gestionnaire.getFlotte())) {
+            String msg = "Placement Curseur refusé (Prox.)";
+            if (sidebarController != null)
+                sidebarController.addAlert(msg);
+            showAlert("Placement Invalide",
+                    "Trop proche d'un autre actif !\nDistance min requise: " + SimConfig.MIN_DISTANCE);
+            return;
+        }
+        // --------------------
+
         if (type.startsWith("DRONE")) {
             promptForZ("Altitude Drone", "Entrez l'altitude [1 - 150]:", 50.0).ifPresent(z -> {
                 if (z < 1 || z > 150) {
@@ -334,20 +430,24 @@ public class MainController {
                     return;
                 }
                 if ("DRONE_RECON".equals(type)) {
-                    gestionnaire.ajouterActif(new DroneReconnaissance("DR-R-" + System.currentTimeMillis(), x, y, z));
+                    String id = String.format("Drone Recon %03d", countDroneRecon++);
+                    gestionnaire.ajouterActif(new DroneReconnaissance(id, x, y, z));
                 } else {
-                    gestionnaire.ajouterActif(new DroneLogistique("DR-L-" + System.currentTimeMillis(), x, y, z));
+                    String id = String.format("Drone Logistique %03d", countDroneLog++);
+                    gestionnaire.ajouterActif(new DroneLogistique(id, x, y, z));
                 }
             });
         } else if ("BOAT".equals(type)) {
-            gestionnaire.ajouterActif(new NavirePatrouille("NV-" + System.currentTimeMillis(), x, y));
+            String id = String.format("Navire %03d", countBoat++);
+            gestionnaire.ajouterActif(new NavirePatrouille(id, x, y));
         } else if ("SUB".equals(type)) {
             promptForZ("Profondeur Sous-Marin", "Entrez la profondeur (Z < 0):", -50.0).ifPresent(z -> {
                 if (z >= 0) {
                     showAlert("Erreur", "Profondeur < 0 requise.");
                     return;
                 }
-                gestionnaire.ajouterActif(new SousMarinExploration("SUB-" + System.currentTimeMillis(), x, y, z));
+                String id = String.format("Sous-Marin %03d", countSub++);
+                gestionnaire.ajouterActif(new SousMarinExploration(id, x, y, z));
             });
         }
     }
@@ -372,30 +472,61 @@ public class MainController {
     private void promptForDroneManual(String type) {
         promptForCoordinates("Ajouter Drone", "Zone Aérienne (Z > 0)", (x, y, z) -> {
             if (z <= 0) {
+                if (sidebarController != null)
+                    sidebarController.addAlert("Placement Drone refusé (Alt. invalide)");
                 showAlert("Erreur", "Altitude > 0 requise.");
                 return;
             }
+            // --- SAFETY CHECK ---
+            if (!SwarmValidator.isPlacementValid(x, y, gestionnaire.getFlotte())) {
+                String msg = "Placement refusé (Prox.): Drone vs Essaim";
+                if (sidebarController != null)
+                    sidebarController.addAlert(msg);
+                showAlert("Placement Invalide",
+                        "Trop proche d'un autre actif !\nDistance min requise: " + SimConfig.MIN_DISTANCE + "m");
+                return;
+            }
+            // --------------------
+
             if ("DRONE_RECON".equals(type)) {
-                gestionnaire.ajouterActif(new DroneReconnaissance("DR-R-" + System.currentTimeMillis(), x, y, z));
+                String id = String.format("Drone Recon %03d", countDroneRecon++);
+                gestionnaire.ajouterActif(new DroneReconnaissance(id, x, y, z));
             } else {
-                gestionnaire.ajouterActif(new DroneLogistique("DR-L-" + System.currentTimeMillis(), x, y, z));
+                String id = String.format("Drone Logistique %03d", countDroneLog++);
+                gestionnaire.ajouterActif(new DroneLogistique(id, x, y, z));
             }
         });
     }
 
     private void promptForBoatManual() {
         promptForCoordinates("Ajouter Navire", "Surface (Z = 0)", (x, y, z) -> {
-            gestionnaire.ajouterActif(new NavirePatrouille("NV-" + System.currentTimeMillis(), x, y));
+            if (!SwarmValidator.isPlacementValid(x, y, gestionnaire.getFlotte())) {
+                if (sidebarController != null)
+                    sidebarController.addAlert("Placement Navire refusé (Prox.)");
+                showAlert("Placement Invalide", "Trop proche d'un autre actif !");
+                return;
+            }
+            String id = String.format("Navire %03d", countBoat++);
+            gestionnaire.ajouterActif(new NavirePatrouille(id, x, y));
         });
     }
 
     private void promptForSubManual() {
         promptForCoordinates("Ajouter Sous-Marin", "Zone Sous-Marine (Z < 0)", (x, y, z) -> {
             if (z >= 0) {
+                if (sidebarController != null)
+                    sidebarController.addAlert("Placement Sous-Marin refusé (Prof. invalide)");
                 showAlert("Erreur", "Profondeur < 0 requise.");
                 return;
             }
-            gestionnaire.ajouterActif(new SousMarinExploration("SUB-" + System.currentTimeMillis(), x, y, z));
+            if (!SwarmValidator.isPlacementValid(x, y, gestionnaire.getFlotte())) {
+                if (sidebarController != null)
+                    sidebarController.addAlert("Placement Sous-Marin refusé (Prox.)");
+                showAlert("Placement Invalide", "Trop proche d'un autre actif !");
+                return;
+            }
+            String id = String.format("Sous-Marin %03d", countSub++);
+            gestionnaire.ajouterActif(new SousMarinExploration(id, x, y, z));
         });
     }
 
@@ -417,6 +548,7 @@ public class MainController {
                     double x = Double.parseDouble(parts[0].trim());
                     double y = Double.parseDouble(parts[1].trim());
                     double z = Double.parseDouble(parts[2].trim());
+                    System.out.println("DEBUG: Manual Input Recu: " + x + ", " + y + ", " + z);
                     action.accept(x, y, z);
                 } else {
                     showAlert("Erreur", "Format invalide. Utilisez x,y,z");
@@ -437,6 +569,20 @@ public class MainController {
 
     @FXML
     private void handleStartMission() {
+        // --- FINAL SWARM VALIDATION ---
+        // Check if any drone is too close to another (in case drag moved them, or
+        // initial placement)
+        List<ActifMobile> fleet = gestionnaire.getFlotte();
+        for (ActifMobile a1 : fleet) {
+            if (!SwarmValidator.isPlacementValid(a1.getX(), a1.getY(),
+                    fleet.stream().filter(a -> a != a1).collect(Collectors.toList()))) {
+                showAlert("Impossible de lancer",
+                        "L'essaim n'est pas sécurisé !\nCertains drones sont trop proches.\nVérifiez les zones rouges.");
+                return;
+            }
+        }
+        // ------------------------------
+
         // Generic Start/Assign Mission Logic
         if (missionPanelController != null) {
             Mission selectedMission = missionPanelController.getSelectedMission();
