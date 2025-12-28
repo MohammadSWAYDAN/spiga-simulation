@@ -12,18 +12,39 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * MainController - PRODUCTION READY
- * Handles asset creation with validation, mission assignment, and UI
- * coordination.
+ * Controleur Principal : Chef d'Orchestre de l'Interface
+ * 
+ * CONCEPTS CLES (JAVA FX & MVC) :
+ * 
+ * 1. MVC (Modele-Vue-Controleur) :
+ * - C'est quoi ? Separer les donnees (Modele), l'affichage (Vue FXML) et la
+ * logique (Controleur).
+ * - Ici : Cette classe est le Controleur. Elle fait le lien entre la Vue
+ * (boutons, sliders) et le Modele (SimulationService).
+ * 
+ * 2. Injection de Dependances (@FXML) :
+ * - C'est quoi ? JavaFX "injecte" automatiquement les objets graphiques dans
+ * nos variables.
+ * - Pourquoi ? Pas besoin de faire slider = new Slider(). Si l'ID dans le FXML
+ * correspond au nom la variable, c'est magique !
+ * 
+ * 3. Gestion d'Evenements :
+ * - C'est quoi ? Reagir aux actions de l'utilisateur.
+ * - Exemple : Quand on clique sur "Play", la methode liee reagit.
  */
 public class MainController {
 
+    // --- VUE (Injection @FXML) ---
+    // Ces champs correspondent aux fx:id dans MainView.fxml
+
     @FXML
-    private StackPane mapContainer;
+    private StackPane mapContainer; // Zone d'affichage carte
     @FXML
-    private StackPane sideViewContainer;
+    private StackPane sideViewContainer; // Zone d'affichage profil
     @FXML
     private Label lblStatus;
+
+    // Sliders pour contrôler le MODÈLE (Météo)
     @FXML
     private Slider sliderSpeed;
     @FXML
@@ -32,10 +53,14 @@ public class MainController {
     private Slider sliderRain;
     @FXML
     private Slider sliderWaves;
+
+    // --- SOUS-CONTRÔLEURS (Composition UI) ---
+    // JavaFX injecte aussi les contrôleurs des fichiers inclus (<fx:include>)
     @FXML
     private SidebarController sidebarController;
     @FXML
     private MissionController missionPanelController;
+
     @FXML
     private Button btnPlayPause;
 

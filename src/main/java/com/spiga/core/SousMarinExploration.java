@@ -2,7 +2,11 @@ package com.spiga.core;
 
 /**
  * SousMarinExploration - Sous-marin d'exploration
- * Hérite de VehiculeSousMarin
+ * Herite de VehiculeSousMarin
+ * 
+ * Concept : Configuration Different
+ * Meme fonctionnement que le parent, mais parametres (vitesse, profondeur)
+ * differents.
  */
 public class SousMarinExploration extends VehiculeSousMarin {
 

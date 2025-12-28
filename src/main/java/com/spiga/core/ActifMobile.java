@@ -3,8 +3,29 @@ package com.spiga.core;
 import com.spiga.management.Mission;
 
 /**
- * Classe abstraite ActifMobile - ENHANCED VERSION
- * Conforme à SPIGA-SPEC.txt section 1.1
+ * Classe Abstraite : ActifMobile
+ * 
+ * CONCEPTS CLES (POO) :
+ * 
+ * 1. Abstraction (abstract class) :
+ * - C'est quoi ? Une classe qu'on ne peut pas creer directement (pas de new
+ * ActifMobile()).
+ * - Pourquoi ici ? Un "ActifMobile" est un concept general. Dans la realite, on
+ * a des Drones ou des Navires, pas juste des "mobiles" flous.
+ * Cette classe sert de base commune a tous les types de vehicules.
+ * 
+ * 2. Encapsulation (protected/private) :
+ * - C'est quoi ? Proteger les donnees de l'objet.
+ * - Pourquoi ici ? Les attributs x, y, z sont protected pour que seuls cet
+ * objet et ses ENFANTS (Drones, etc.) puissent les modifier directement.
+ * 
+ * 3. Polymorphisme (Interfaces) :
+ * - C'est quoi ? Un objet peut prendre plusieurs formes.
+ * - Pourquoi ici ? En implementant Deplacable, Pilotable, cet objet promet
+ * qu'il sait "se deplacer" et "etre pilote".
+ * Le systeme pourra donc traiter tous les ActifMobile de la meme facon.
+ * 
+ * Conforme a SPIGA-SPEC.txt section 1.1
  */
 public abstract class ActifMobile implements Deplacable, Rechargeable, Communicable, Pilotable, Alertable {
 
@@ -13,21 +34,17 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     }
 
     public enum AssetState {
-        IDLE, // Au repos
-        MOVING_TO_TARGET, // En déplacement vers une cible
-        EXECUTING_MISSION, // Exécution de mission
-        LOW_BATTERY, // Batterie faible (warning only)
-        RETURNING_TO_BASE, // Retour automatique à la base
-        STOPPED, // Arrêté (batterie vide)
-        RECHARGING // En recharge
+        IDLE, MOVING_TO_TARGET, EXECUTING_MISSION, RETURNING_LEVEL, RETURNING_TO_BASE, LOW_BATTERY, RECHARGING, STOPPED
     }
 
+    // --- ENCAPSULATION ---
+    // Protected : Accessible par les classes filles (Héritage)
     protected String id;
-    protected double x, y, z;
+    protected double x, y, z; // Position 3D
     protected double vitesseMax;
-    protected double autonomieMax;
+    protected double autonomieMax; // Heures
     protected double autonomieActuelle;
-    protected EtatOperationnel etat;
+    protected EtatOperationnel etat; // Enumération d'états
 
     // NOUVEAUX ATTRIBUTS
     protected double velocityX, velocityY, velocityZ;
@@ -38,6 +55,10 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     protected double speedModifier = 1.0;
     protected String collisionWarning = null; // Alert message for UI
 
+    /**
+     * Constructeur.
+     * Appelé par les classes filles via <code>super()</code>.
+     */
     public ActifMobile(String id, double x, double y, double z, double vitesseMax, double autonomieMax) {
         this.id = id;
         this.x = x;
@@ -47,6 +68,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         this.autonomieMax = autonomieMax;
         this.autonomieActuelle = autonomieMax;
         this.etat = EtatOperationnel.AU_SOL;
+        this.state = AssetState.IDLE; // Initialisation de l'état
 
         this.velocityX = 0;
         this.velocityY = 0;
@@ -54,7 +76,6 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         this.targetX = x;
         this.targetY = y;
         this.targetZ = z;
-        this.state = AssetState.IDLE;
         this.currentMission = null;
         this.selected = false;
     }
@@ -109,14 +130,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
             // Apply Weather Drag
             double effectiveSpeed = vitesseMax;
             if (weather != null) {
-                // Simple drag model: 1% speed loss per 10 km/h of wind
-                double dragFactor = 1.0 - (weather.getWindSpeed() / 1000.0);
-                if (weather.getSeaWaveHeight() > 0 && this instanceof ActifMarin) {
-                    dragFactor -= weather.getSeaWaveHeight() * 0.05; // 5% per meter
-                }
-                if (dragFactor < 0.1)
-                    dragFactor = 0.1; // Min speed
-                effectiveSpeed *= dragFactor;
+                effectiveSpeed *= getSpeedEfficiency(weather);
             }
 
             effectiveSpeed *= speedModifier; // Apply Speed Modifier
@@ -220,6 +234,19 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
      */
     protected double getWeatherImpact(com.spiga.environment.Weather w) {
         return 1.0; // Default implementation
+    }
+
+    /**
+     * Calculates speed efficiency based on weather.
+     * 1.0 = 100% speed. <1.0 = Reduced speed.
+     */
+    protected double getSpeedEfficiency(com.spiga.environment.Weather w) {
+        // Default behavior: Simple wind drag
+        // 1% speed loss per 10 km/h of wind
+        double dragFactor = 1.0 - (w.getWindSpeed() / 1000.0);
+        if (dragFactor < 0.1)
+            dragFactor = 0.1;
+        return dragFactor;
     }
 
     @Override

@@ -2,7 +2,10 @@ package com.spiga.core;
 
 /**
  * SousMarinAttaque - Sous-marin d'attaque
- * Hérite de VehiculeSousMarin
+ * Herite de VehiculeSousMarin
+ * 
+ * Concept : Actions Uniques
+ * Seul ce type de sous-marin peut "lancerTorpille()".
  */
 public class SousMarinAttaque extends VehiculeSousMarin {
 

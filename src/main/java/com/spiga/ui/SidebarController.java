@@ -10,8 +10,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * SidebarController - OPTIMIZED
- * Fixes selection flickering and updates details efficiently.
+ * Controleur de la Barre Laterale (Details).
+ * 
+ * Concept JavaFX Avance : Threading
+ * Les mises a jour de l'interface (UI) DOIVENT se faire sur le "JavaFX
+ * Application Thread".
+ * Comme la simulation tourne sur un timer (ou potentiellement un autre thread),
+ * nous utilisons
+ * Platform.runLater(Runnable) pour demander a JavaFX de mettre a jour les
+ * labels
+ * des que possible, sans bloquer ni crasher l'application.
  */
 public class SidebarController {
 

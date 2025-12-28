@@ -2,7 +2,11 @@ package com.spiga.core;
 
 /**
  * NavireLogistique - Navire logistique
- * Hérite de VehiculeSurface
+ * Herite de VehiculeSurface
+ * 
+ * Concept : Specialisation Metier
+ * Ce navire ajoute une "capaciteCargaison" qui n'existe pas dans le vehicule de
+ * base.
  */
 public class NavireLogistique extends VehiculeSurface {
 

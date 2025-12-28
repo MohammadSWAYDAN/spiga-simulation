@@ -1,19 +1,27 @@
 package com.spiga.core;
 
 /**
- * VehiculeSousMarin - Véhicule sous-marin (AUV)
- * Conforme à SPIGA-SPEC.txt section 1.2
+ * Classe Concrete : Vehicule Sous-Marin (AUV)
  * 
- * Opère en 3D sous l'eau
- * Z est critique (profondeur max/min)
- * Sensible aux courants marins
+ * CONCEPTS CLES :
+ * 
+ * 1. Heritage Concret :
+ * - C'est quoi ? Une classe "finale" qu'on peut instancier (creer).
+ * - Heritage : ActifMobile -> ActifMarin -> VehiculeSousMarin.
+ * 
+ * 2. Surcharge de Methode (@Override) :
+ * - Exemple : getWeatherImpact. Un sous-marin se fiche de la pluie
+ * (contrairement aux drones).
+ * En revanche, il est sensible aux vagues/courants. On reecrit donc la logique
+ * ici pour coller a la realite physique du sous-marin.
  */
 public class VehiculeSousMarin extends ActifMarin {
 
     public VehiculeSousMarin(String id, double x, double y, double profondeur) {
-        super(id, x, y, profondeur, 20.0, 72.0); // 20 km/h, 72h autonomie
+        // Constructeur parent : Vitesse=20km/h, Autonomie=72h
+        super(id, x, y, profondeur, 20.0, 72.0);
         this.profondeurMax = 0;
-        this.profondeurMin = -1000; // -1000m
+        this.profondeurMin = -1000; // Peut descendre à -1000m
     }
 
     @Override

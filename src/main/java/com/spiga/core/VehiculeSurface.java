@@ -1,11 +1,19 @@
 package com.spiga.core;
 
 /**
- * VehiculeSurface - Véhicule de surface
- * Conforme à SPIGA-SPEC.txt section 1.2
+ * Classe Concrete/Intermediaire : Vehicule de Surface
  * 
- * Opère à la surface (Z constant = 0)
- * Sensible au vent et à l'état de la mer
+ * CONCEPTS CLES :
+ * 
+ * 1. Heritage restrictif :
+ * - C'est quoi ? Utiliser l'heritage pour IMPOSER une contrainte.
+ * - Pourquoi ici ? Un navire de surface EST UN actif marin, MAIS sa profondeur
+ * est forcee a 0.
+ * Cette classe verrouille Z=0 pour tous ses enfants (NavirePatrouille, etc.).
+ * 
+ * 2. Override pour Controle :
+ * - La methode deplacer est redefinie pour ignorer toute demande de plongee (Z
+ * < 0) ou de vol (Z > 0).
  */
 public class VehiculeSurface extends ActifMarin {
 

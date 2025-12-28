@@ -1,29 +1,50 @@
 package com.spiga.core;
 
-import com.spiga.management.GestionnaireEssaim;
 import com.spiga.environment.Obstacle;
+import com.spiga.environment.RestrictedZone;
 import com.spiga.environment.Weather;
 import com.spiga.management.Communication;
-import com.spiga.environment.RestrictedZone;
+import com.spiga.management.GestionnaireEssaim;
+import com.spiga.management.Mission;
 import javafx.animation.AnimationTimer;
+
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * SimulationService - PRODUCTION READY
- * Handles 60 FPS loop, physics, weather cycles, and obstacle avoidance.
+ * Moteur de Simulation (Le Cerveau)
+ * 
+ * CONCEPTS CLES :
+ * 
+ * 1. Heritage (AnimationTimer) :
+ * - Pourquoi ? JavaFX fournit cette classe pour creer une "boucle de jeu" (Game
+ * Loop).
+ * En etendant AnimationTimer, on peut redefinir la methode handle() qui sera
+ * appelee 60 fois par seconde.
+ * 
+ * 2. Composition (Has-A relation) :
+ * - C'est quoi ? Une classe composee d'autres objets.
+ * - Ici : SimulationService POSEDE (has-a) un GestionnaireEssaim, une Weather,
+ * des Obstacles.
+ * Il orchestre leurs interactions.
+ * 
+ * 3. Boucle de Simulation (Game Loop) :
+ * - Ou ? Methode handle() -> updateSimulation().
+ * - Principe : A chaque "frame", on met a jour la position de tous les objets,
+ * on verifie les collisions, etc.
  */
 public class SimulationService extends AnimationTimer {
     private static final double TARGET_FPS = 60.0;
     private static final double FRAME_TIME = 1.0 / TARGET_FPS;
-    // Threshold set to 2x Radius (2 * 20 = 40) so avoidance starts when visual
-    // circles touch
     private static final double COLLISION_THRESHOLD = SimConfig.SAFETY_RADIUS * 2.0;
     private static final double PUSH_FORCE = 2.0;
 
+    // --- COMPOSITION : Mes composants ---
     private GestionnaireEssaim gestionnaire;
     private Communication communication;
 
+    // Utilisation de Collections (List) pour gérer dynamiquement des groupes
+    // d'objets
     private List<Obstacle> obstacles;
     private List<RestrictedZone> restrictedZones;
     private Weather weather;
@@ -32,16 +53,19 @@ public class SimulationService extends AnimationTimer {
     private long lastTime = 0;
     private double accumulator = 0;
 
-    // Weather Cycle
-    // private double weatherTimer = 30.0;
-    // private double weatherDuration = 30.0;
-    // private Random random = new Random();
-
+    /**
+     * Constructeur : Initialisation du service.
+     * Instanciation des listes et des objets dépendants avec `new`.
+     */
     public SimulationService(GestionnaireEssaim gestionnaire) {
         this.gestionnaire = gestionnaire;
         this.communication = new Communication(gestionnaire);
+
+        // Allocation mémoire (Heap) pour les listes
         this.obstacles = new ArrayList<>();
         this.restrictedZones = new ArrayList<>();
+
+        // Création de l'objet Météo initial
         this.weather = new Weather(10, 0, 0);
 
         initializeObstacles();

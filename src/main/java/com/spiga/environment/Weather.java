@@ -1,10 +1,23 @@
 package com.spiga.environment;
 
+/**
+ * Classe representant la Meteo.
+ * 
+ * Concepts :
+ * 
+ * - Encapsulation : Les attributs (vitesse vent, pluie) sont prives.
+ * - Modelisation : Represente l'etat de l'environnement qui influence les
+ * actifs (via getWeatherImpact).
+ */
 public class Weather {
     private double windSpeed; // km/h
     private double windDirection; // degrees
     private double rainIntensity; // 0-100
+    private double seaWaveHeight; // New Feature
 
+    /**
+     * Constructeur complet.
+     */
     public Weather(double windSpeed, double windDirection, double rainIntensity) {
         this.windSpeed = windSpeed;
         this.windDirection = windDirection;
@@ -38,7 +51,7 @@ public class Weather {
     }
 
     // New Feature
-    private double seaWaveHeight;
+    // Field moved to top
 
     public double getSeaWaveHeight() {
         return seaWaveHeight;

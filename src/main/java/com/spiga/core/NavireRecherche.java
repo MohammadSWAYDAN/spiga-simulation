@@ -2,7 +2,11 @@ package com.spiga.core;
 
 /**
  * NavireRecherche - Navire de recherche
- * Hérite de VehiculeSurface
+ * Herite de VehiculeSurface
+ * 
+ * Concept : Etat Interne
+ * Ce navire a un booleen "laboratoireActif" qui change son comportement
+ * (consommation).
  */
 public class NavireRecherche extends VehiculeSurface {
 

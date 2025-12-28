@@ -1,13 +1,37 @@
 package com.spiga.management;
 
-import com.spiga.core.*;
+import com.spiga.core.ActifMobile;
+import com.spiga.core.Communicable;
+import com.spiga.core.ActifAerien;
+import com.spiga.core.ActifMarin;
+import com.spiga.core.DroneLogistique;
+import com.spiga.core.DroneReconnaissance;
+// GestionnaireEssaim and Mission are likely in the same package (com.spiga.management)
+// so explicit import from core is wrong if they are not there.
+import com.spiga.core.VehiculeSousMarin;
+import com.spiga.core.VehiculeSurface;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Communication - Mission Communication Logic
- * Handles separate mission queues for Aerial and Marine assets.
+ * Systeme de Communication
+ * 
+ * CONCEPTS CLES :
+ * 
+ * 1. Association (vs Heritage) :
+ * - C'est quoi ? Une classe "utilise" une autre classe.
+ * - Ici : Communication connait GestionnaireEssaim, mais ne "herite" pas de
+ * lui. Ils collaborent.
+ * 
+ * 2. Separation des Responsabilites (SRP) :
+ * - C'est quoi ? Chaque classe fait UNE chose bien.
+ * - Pourquoi ? Le Gestionnaire gere la liste des actifs. Communication gere les
+ * messages. On ne melange pas tout.
+ * 
+ * 3. Map (Dictionnaire) :
+ * - C'est quoi ? Une collection Cle -> Valeur.
+ * - Utilisation : missionQueue associe un type d'actif a une liste de messages.
  */
 public class Communication {
 

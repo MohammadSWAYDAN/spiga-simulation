@@ -18,7 +18,20 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * MapCanvas - WITH LIVE COORDINATE TRACKING
+ * Vue Principale (La Carte 2D)
+ * 
+ * CONCEPTS CLES (GRAPHIQUE ET MATHS) :
+ * 
+ * 1. Canvas vs Scene :
+ * - C'est quoi ? Une toile de peinture (Canvas) ou on dessine Pixel par Pixel.
+ * - Pourquoi pas des Boutons ? Pour une simulation avec 100 objets qui bougent
+ * 60 fois/sec, utiliser des objets JavaFX classiques (Nodes) serait trop lent.
+ * Le Canvas est beaucoup plus performant (Dessin immediat).
+ * 
+ * 2. Systeme de Coordonnees (World vs Screen) :
+ * - Concept Vital : Le "Monde" fait 1000km de large. L'Ecran fait 800 pixels.
+ * - Il faut convertir : screenX = (worldX * scale) + offsetX.
+ * Toutes les methodes "worldToScreen" servent a ca.
  */
 public class MapCanvas extends Canvas {
     private List<ActifMobile> selectedAssets = new ArrayList<>();

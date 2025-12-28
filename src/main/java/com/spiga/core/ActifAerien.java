@@ -1,24 +1,34 @@
 package com.spiga.core;
 
 /**
- * Classe abstraite ActifAerien - Actifs aériens
- * Conforme à SPIGA-SPEC.txt section 1.1
+ * Classe Abstraite Intermediaire : Actif Aerien
  * 
- * Hérite de ActifMobile
- * Drones évoluant principalement en 2D (X, Y) avec composante Z (Altitude)
- * Sensibles aux facteurs atmosphériques
+ * CONCEPTS CLES (HERITAGE EN COUCHES) :
+ * 
+ * 1. Heritage Intermediaire :
+ * - C'est quoi ? Une classe qui herite (de ActifMobile) mais qui est encore
+ * trop generale pour etre utilisee seule (Abstract).
+ * - Pourquoi ? Elle factorise ce qui est unique au vol : Altitude max/min,
+ * impact du vent sur le vol.
+ * Les bateaux n'ont pas ca, donc on ne met pas ca dans ActifMobile.
+ * 
+ * 2. Hierarchie :
+ * ActifMobile (Grand-pere) -> ActifAerien (Pere) -> DroneReconnaissance (Fils).
  */
 public abstract class ActifAerien extends ActifMobile {
 
+    // Attributs propres aux objets volants
     protected double altitudeMax;
     protected double altitudeMin;
 
     public ActifAerien(String id, double x, double y, double altitude, double vitesseMax, double autonomieMax) {
+        // Appelle le constructeur du Grand-Père (ActifMobile)
         super(id, x, y, altitude, vitesseMax, autonomieMax);
-        this.altitudeMax = 5000; // Legacy default, but we enforce 150 now
+        this.altitudeMax = 5000;
         this.altitudeMin = 0;
     }
 
+    // Réutilisation : Cette méthode sera utilisée par TOUS les drones.
     @Override
     protected double getWeatherImpact(com.spiga.environment.Weather w) {
         double impact = 1.0;
@@ -26,11 +36,32 @@ public abstract class ActifAerien extends ActifMobile {
         if (w.getWindSpeed() > 15) {
             impact += (w.getWindSpeed() - 15) * 0.015;
         }
-        // Rain Sensitivity
+        // Rain Sensitivity (Consumption)
         if (w.getRainIntensity() > 20) {
             impact += 0.15;
         }
         return impact;
+    }
+
+    @Override
+    protected double getSpeedEfficiency(com.spiga.environment.Weather w) {
+        // Base Wind Drag
+        double efficiency = super.getSpeedEfficiency(w);
+
+        // Rain Impact Logic:
+        // Users requested: "when i add rain, i want also the speed of drone to be
+        // affected, it should be less"
+        // Model: reduces speed by up to 50% at max rain (100)
+        if (w.getRainIntensity() > 0) {
+            double rainPenalty = (w.getRainIntensity() / 100.0) * 0.5; // Max 0.5
+            efficiency -= rainPenalty;
+        }
+
+        // Safety floor
+        if (efficiency < 0.1)
+            efficiency = 0.1;
+
+        return efficiency;
     }
 
     @Override

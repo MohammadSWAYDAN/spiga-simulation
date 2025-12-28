@@ -1,41 +1,40 @@
 package com.spiga.management;
 
+import com.spiga.core.ActifMobile;
+
 /**
- * Mission - ENHANCED VERSION
- * Conforme à SPIGA-SPEC.txt section 3.2
+ * Classe abstraite representant une Mission.
  * 
- * NEW FEATURES:
- * - Target coordinates for navigation
- * - Mission type enum
- * - Complete lifecycle tracking
- * - Mission completion detection
+ * Concepts POO (Cours 1 & 2) :
+ * 
+ * - Classe : Modele definissant les attributs (etat) et methodes (comportement)
+ * communs aux missions.
+ * - Abstraite : Ne peut etre instanciee directement (on ne fait pas new
+ * Mission()), mais sert de base pour MissionLogistique, etc. (Voir Cours 3 :
+ * Generalisation).
+ * - Encapsulation : Les attributs sont protected (accessibles aux sous-classes)
+ * et exposes via des methodes publiques (Getters/Setters).
+ * 
+ * Conforme a SPIGA-SPEC.txt section 3.2
  */
 public abstract class Mission {
 
     /**
-     * Type de mission
+     * Énumération (Enum) : Type spécial de classe représentant un groupe de
+     * Enum : Définit strictement les TYPES de missions possibles.
      */
     public enum MissionType {
-        SURVEILLANCE, // Surveillance de zone
-        LOGISTICS, // Transport logistique
-        NAVIGATION, // Navigation point-à-point
-        SEARCH_AND_RESCUE // Recherche et sauvetage
+        SURVEILLANCE, LOGISTICS, NAVIGATION, SEARCH_AND_RESCUE
     }
 
     /**
-     * Statut de la mission
-     */
-    /**
-     * Statut de la mission (Conforme SPIGA-SPEC)
+     * Enum : Définit strictement le CYCLE DE VIE d'une mission.
      */
     public enum StatutMission {
-        PLANIFIEE, // Created/Assigned
-        EN_COURS, // Executing
-        TERMINEE, // Completed
-        ECHOUEE, // Failed
-        ANNULEE // Cancelled
+        PLANIFIEE, EN_COURS, TERMINEE, ECHOUEE, ANNULEE
     }
 
+    // Attributs de la classe (État de l'objet)
     protected String id;
     protected String titre;
     protected MissionType type;
@@ -45,18 +44,30 @@ public abstract class Mission {
     protected String objectives;
     protected String results;
 
-    // NOUVEAUX ATTRIBUTS pour navigation
+    // Association : Une mission peut être liée à un Actif
+    protected ActifMobile assignedAsset;
+
+    // Coordonnées cibles (Encapsulation : Accès via setTarget/getTarget)
     protected double targetX;
     protected double targetY;
     protected double targetZ;
 
+    /**
+     * Constructeur : Méthode spéciale appelée lors de la création d'une instance
+     * (objet).
+     * Elle initialise l'état initial de l'objet.
+     * 
+     * @param titre Le nom de la mission
+     * @param type  Le type de mission (Enum)
+     */
     public Mission(String titre, MissionType type) {
-        this.id = "M-" + System.currentTimeMillis();
+        this.id = "M-" + System.currentTimeMillis(); // Génération d'ID unique basée sur le temps
         this.titre = titre;
         this.type = type;
         this.statut = StatutMission.PLANIFIEE;
         this.objectives = "Objectifs par défaut";
-        this.targetX = 500; // Centre par défaut
+        // Valeurs par défaut
+        this.targetX = 500;
         this.targetY = 500;
         this.targetZ = 0;
     }

@@ -1,7 +1,6 @@
 package com.spiga.ui;
 
 import com.spiga.core.SimConfig;
-
 import com.spiga.core.ActifMobile;
 import com.spiga.environment.Obstacle;
 import com.spiga.environment.RestrictedZone;
@@ -16,8 +15,20 @@ import javafx.scene.text.FontWeight;
 import java.util.List;
 
 /**
- * SideViewCanvas - IMPROVED PROFILE VIEW
- * Shows assets projected onto X-Z plane with clearer visualization.
+ * Vue de Profil (Side View)
+ * 
+ * CONCEPTS CLES (PROJECTION 2D) :
+ * 
+ * 1. Projection Orthogonale :
+ * - C'est quoi ? On regarde le monde de cote. On ignore la coordonnee Y du
+ * monde (profondeur visuelle).
+ * On affiche juste : Axe X ecran = X Monde, Axe Y ecran = Z Monde
+ * (Altitude/Profondeur).
+ * 
+ * 2. Mapping Mathematique (Normalisation) :
+ * - Defi : L'ecran a l'axe Y vers le bas (0 = haut). Le Monde a l'axe Z vers le
+ * haut (200m = ciel).
+ * - Solution : mapZtoY. On transforme Z [-200, +200] en Y [HauteurEcran, 0].
  */
 public class SideViewCanvas extends Canvas {
 

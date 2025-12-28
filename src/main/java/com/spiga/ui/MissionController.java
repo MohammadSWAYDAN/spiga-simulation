@@ -10,8 +10,20 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * MissionController - FIXED & ENHANCED
- * Adds cursor mode for coordinate picking and fixes validation.
+ * Controleur de Creation de Missions
+ * 
+ * CONCEPTS CLES :
+ * 
+ * 1. Logique d'Interaction :
+ * - C'est quoi ? Guider l'utilisateur.
+ * - Exemple : La methode handleSetTarget ouvre une boite de dialogue (Dialog)
+ * pour demander des choix complexes.
+ * 
+ * 2. Validation Metier (Business Logic) :
+ * - C'est quoi ? Empecher l'utilisateur de faire des betises.
+ * - Ou ? validatePhysicalConstraints verifie qu'on n'envoie pas un sous-marin
+ * dans les nuages !
+ * C'est une protection essentielle dans tout logiciel professionnel.
  */
 public class MissionController {
 

@@ -1,5 +1,12 @@
 package com.spiga.environment;
 
+/**
+ * Zone Interdite (Zone No-Fly / No-Sail).
+ * 
+ * Abstraction : Modelise une zone cylindrique (Cercle + Hauteur min/max) ou les
+ * actifs ne doivent pas entrer.
+ * Utilise par SimulationService pour valider les deplacements.
+ */
 public class RestrictedZone {
     private String id;
     private double x, y;

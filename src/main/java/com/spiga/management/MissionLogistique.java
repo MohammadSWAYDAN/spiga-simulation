@@ -2,7 +2,10 @@ package com.spiga.management;
 
 /**
  * MissionLogistique - Mission logistique
- * Conforme à SPIGA-SPEC.txt section 3.2
+ * Conforme a SPIGA-SPEC.txt section 3.2
+ * 
+ * Concept : Polymorphisme (Missions)
+ * Cette classe est une forme specifique de "Mission".
  */
 public class MissionLogistique extends Mission {
 

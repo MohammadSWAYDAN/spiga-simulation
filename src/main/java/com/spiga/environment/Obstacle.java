@@ -1,5 +1,14 @@
 package com.spiga.environment;
 
+/**
+ * Represente un Obstacle physique (Rocher, ile, etc.).
+ * 
+ * Concepts :
+ * 
+ * - Objet simple : Structure de donnees definie par sa position et son rayon.
+ * - Logique locale : Contient sa propre methode de detection de collision
+ * (isCollision).
+ */
 public class Obstacle {
     private double x, y, z;
     private double radius; // Simplified as sphere/circle
