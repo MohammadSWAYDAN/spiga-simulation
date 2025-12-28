@@ -35,6 +35,8 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     protected AssetState state;
     protected Mission currentMission;
     protected boolean selected;
+    protected double speedModifier = 1.0;
+    protected String collisionWarning = null; // Alert message for UI
 
     public ActifMobile(String id, double x, double y, double z, double vitesseMax, double autonomieMax) {
         this.id = id;
@@ -59,6 +61,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
 
     // Updated update signature to include Weather
     public void update(double dt, com.spiga.environment.Weather weather) {
+        speedModifier = 1.0; // Reset every frame, SimulationService will override if collision detected
         if (state == AssetState.MOVING_TO_TARGET || state == AssetState.EXECUTING_MISSION
                 || state == AssetState.RETURNING_TO_BASE) {
             moveTowards(targetX, targetY, targetZ, dt, weather); // Pass weather for drag
@@ -115,6 +118,8 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
                     dragFactor = 0.1; // Min speed
                 effectiveSpeed *= dragFactor;
             }
+
+            effectiveSpeed *= speedModifier; // Apply Speed Modifier
 
             velocityX = dirX * effectiveSpeed;
             velocityY = dirY * effectiveSpeed;
@@ -371,5 +376,17 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
 
     public void setSelected(boolean selected) {
         this.selected = selected;
+    }
+
+    public void setSpeedModifier(double modifier) {
+        this.speedModifier = modifier;
+    }
+
+    public void setCollisionWarning(String warning) {
+        this.collisionWarning = warning;
+    }
+
+    public String getCollisionWarning() {
+        return collisionWarning;
     }
 }

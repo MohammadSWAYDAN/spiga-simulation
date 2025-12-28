@@ -52,10 +52,13 @@
             </ScrollPane>
 
             <!-- Bottom: Profile View (X, Z) - Larger -->
-            <StackPane fx:id="sideViewContainer" style="-fx-background-color: black;">
-                <Label text="Profile View (Side)" style="-fx-text-fill: white; -fx-padding: 5;" StackPane.alignment="TOP_LEFT"/>
-                <!-- SideViewCanvas added dynamically -->
-            </StackPane>
+            <!-- Bottom: Profile View (X, Z) - Larger -->
+            <ScrollPane hbarPolicy="ALWAYS" vbarPolicy="ALWAYS" fitToWidth="true" fitToHeight="true" pannable="true">
+                <StackPane fx:id="sideViewContainer" style="-fx-background-color: black;">
+                    <Label text="Profile View (Side)" style="-fx-text-fill: white; -fx-padding: 5;" StackPane.alignment="TOP_LEFT"/>
+                    <!-- SideViewCanvas added dynamically -->
+                </StackPane>
+            </ScrollPane>
         </SplitPane>
     </center>
 

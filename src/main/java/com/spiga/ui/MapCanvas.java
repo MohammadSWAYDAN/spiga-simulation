@@ -2,7 +2,7 @@ package com.spiga.ui;
 
 import com.spiga.core.*;
 import com.spiga.environment.Obstacle;
-import com.spiga.environment.ZoneOperation;
+import com.spiga.environment.RestrictedZone;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
  * MapCanvas - WITH LIVE COORDINATE TRACKING
  */
 public class MapCanvas extends Canvas {
-    private ZoneOperation zone;
     private List<ActifMobile> selectedAssets = new ArrayList<>();
     private Consumer<List<ActifMobile>> onSelectionChanged;
     private Consumer<double[]> onMapClicked;
@@ -39,11 +38,8 @@ public class MapCanvas extends Canvas {
     private double mouseWorldY = 0;
     private boolean showCoordinates = false;
 
-    private static final Font LABEL_FONT = Font.font("Arial", FontWeight.BOLD, 10);
-
-    public MapCanvas(double width, double height, ZoneOperation zone) {
+    public MapCanvas(double width, double height) {
         super(width, height);
-        this.zone = zone;
         setupMouseHandlers();
     }
 
@@ -77,7 +73,7 @@ public class MapCanvas extends Canvas {
             offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
             scale = newScale;
 
-            draw(lastFleet != null ? lastFleet : new ArrayList<>(), null); // Redraw immediately
+            draw(lastFleet != null ? lastFleet : new ArrayList<>(), null, null); // Redraw immediately
             event.consume();
         });
 
@@ -99,7 +95,7 @@ public class MapCanvas extends Canvas {
                 offsetY += dy;
                 lastMouseX = event.getX();
                 lastMouseY = event.getY();
-                draw(lastFleet != null ? lastFleet : new ArrayList<>(), null);
+                draw(lastFleet != null ? lastFleet : new ArrayList<>(), null, null);
             }
             // Update coords
             handleMouseMove(event);
@@ -148,7 +144,8 @@ public class MapCanvas extends Canvas {
     // --- Metrics Transformations ---
     private double worldToScreenX(double wx) {
         // World 0..1000 -> Screen
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
+        // World 0..2000 -> Screen
+        double maxX = SimConfig.WORLD_WIDTH;
         // Base mapping: 0->0, maxX->Width. Then apply scale & offset
         double baseScreenX = (wx / maxX) * getWidth();
         // ACTUALLY: Let's assume World Coords ARE the pixels at scale 1.0 for
@@ -159,13 +156,13 @@ public class MapCanvas extends Canvas {
     }
 
     private double worldToScreenY(double wy) {
-        double maxY = (zone != null) ? zone.getMaxY() : 1000;
+        double maxY = SimConfig.WORLD_HEIGHT;
         double baseScreenY = (wy / maxY) * getHeight();
         return (baseScreenY * scale) + offsetY;
     }
 
     private double screenToWorldX(double sx) {
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
+        double maxX = SimConfig.WORLD_WIDTH;
         // sx = (base * scale) + offset => base = (sx - offset) / scale
         // base = (wx / maxX) * W => wx = base * maxX / W
         double baseScreenX = (sx - offsetX) / scale;
@@ -173,7 +170,7 @@ public class MapCanvas extends Canvas {
     }
 
     private double screenToWorldY(double sy) {
-        double maxY = (zone != null) ? zone.getMaxY() : 1000;
+        double maxY = SimConfig.WORLD_HEIGHT;
         double baseScreenY = (sy - offsetY) / scale;
         return (baseScreenY / getHeight()) * maxY;
     }
@@ -183,7 +180,8 @@ public class MapCanvas extends Canvas {
         // If worldSize is in world units (0..1000), we need to scale it to screen
         // pixels
         // 1 world unit = (Width / 1000) pixels
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
+        // 1 world unit = (Width / WorldWidth) pixels
+        double maxX = SimConfig.WORLD_WIDTH;
         double pixelSizeAtScale1 = (worldSize / maxX) * getWidth();
         return pixelSizeAtScale1 * scale;
     }
@@ -199,18 +197,21 @@ public class MapCanvas extends Canvas {
         notifySelectionChanged();
     }
 
-    public void draw(List<ActifMobile> assets, List<Obstacle> obstacles) {
+    public void draw(List<ActifMobile> assets, List<Obstacle> obstacles, List<RestrictedZone> restrictedZones) {
         this.lastFleet = assets;
         GraphicsContext gc = getGraphicsContext2D();
 
         gc.clearRect(0, 0, getWidth(), getHeight());
 
         // DEBUG LOG
-        if (assets.size() > 0)
-            System.out.println("DEBUG: MapCanvas Drawing " + assets.size() + " assets");
+        // if (assets.size() > 0)
+        // System.out.println("DEBUG: MapCanvas Drawing " + assets.size() + " assets");
 
         drawBackground(gc);
         drawGrid(gc);
+
+        // Draw Restricted Zones (Underlay)
+        drawRestrictedZones(gc, restrictedZones);
 
         // Safety Zones (Underlay)
         drawSafetyZones(gc, assets);
@@ -233,6 +234,34 @@ public class MapCanvas extends Canvas {
         }
     }
 
+    private void drawRestrictedZones(GraphicsContext gc, List<RestrictedZone> zones) {
+        if (zones == null)
+            return;
+
+        for (RestrictedZone z : zones) {
+            double cx = worldToScreenX(z.getX());
+            double cy = worldToScreenY(z.getY());
+            double r = scaleSize(z.getRadius());
+
+            // Draw Black Circle (Semi-transparent)
+            gc.setFill(Color.rgb(0, 0, 0, 0.4)); // Black with 40% opacity
+            gc.fillOval(cx - r, cy - r, r * 2, r * 2);
+
+            // Solid Black Outline/Hatch
+            gc.setStroke(Color.BLACK);
+            gc.setLineWidth(2);
+            gc.setLineDashes(10d, 10d); // Dashed
+            gc.strokeOval(cx - r, cy - r, r * 2, r * 2);
+            gc.setLineDashes(0);
+
+            // Label
+            gc.setFill(Color.BLACK);
+            gc.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+            gc.fillText("ZONE INTERDITE", cx - 40, cy);
+            gc.fillText("(H < " + (int) z.getMaxZ() + "m)", cx - 30, cy + 15);
+        }
+    }
+
     private void drawSafetyZones(GraphicsContext gc, List<ActifMobile> assets) {
         for (ActifMobile asset : assets) {
             double cx = worldToScreenX(asset.getX());
@@ -246,7 +275,7 @@ public class MapCanvas extends Canvas {
             double r = scaleSize(SimConfig.SAFETY_RADIUS);
 
             // Check for violations to determine color
-            boolean violation = !SwarmValidator.isPlacementValid(asset.getX(), asset.getY(),
+            boolean violation = !SwarmValidator.isPlacementValid(asset.getX(), asset.getY(), asset.getZ(),
                     assets.stream().filter(a -> a != asset).collect(Collectors.toList()));
 
             // Actually SwarmValidator uses MIN_DISTANCE (50).
@@ -420,18 +449,26 @@ public class MapCanvas extends Canvas {
         }
 
         String label = asset.getId();
-        gc.setFont(LABEL_FONT);
-
-        // Label position
-        gc.setFill(Color.rgb(0, 0, 0, 0.5));
-        double textWidth = label.length() * 6;
-        gc.fillRoundRect(cx + size, cy - 10, textWidth + 4, 14, 5, 5);
-
         gc.setFill(Color.WHITE);
         gc.fillText(label, cx + size + 2, cy);
     }
 
     private void drawSelectionHighlights(GraphicsContext gc) {
+        // Draw World Border (Red Limit)
+        gc.setStroke(Color.RED);
+        gc.setLineWidth(5);
+        // Valid area is 0,0 to WORLD_WIDTH, WORLD_HEIGHT
+        gc.strokeRect(worldToScreenX(0), worldToScreenY(0), scaleSize(SimConfig.WORLD_WIDTH),
+                scaleSize(SimConfig.WORLD_HEIGHT));
+
+        // Draw Coordinates Label at corners
+        gc.setFill(Color.RED);
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        gc.fillText("(0,0)", worldToScreenX(10), worldToScreenY(20));
+        gc.fillText("(" + (int) SimConfig.WORLD_WIDTH + "," + (int) SimConfig.WORLD_HEIGHT + ")",
+                worldToScreenX(SimConfig.WORLD_WIDTH - 120), worldToScreenY(SimConfig.WORLD_HEIGHT - 10));
+
+        // Draw selected assets range rings
         for (ActifMobile asset : selectedAssets) {
             double cx = worldToScreenX(asset.getX());
             double cy = worldToScreenY(asset.getY());

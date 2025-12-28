@@ -4,7 +4,7 @@ import com.spiga.management.GestionnaireEssaim;
 import com.spiga.environment.Obstacle;
 import com.spiga.environment.Weather;
 import com.spiga.management.Communication;
-import com.spiga.environment.ZoneOperation;
+import com.spiga.environment.RestrictedZone;
 import javafx.animation.AnimationTimer;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,14 +16,17 @@ import java.util.List;
 public class SimulationService extends AnimationTimer {
     private static final double TARGET_FPS = 60.0;
     private static final double FRAME_TIME = 1.0 / TARGET_FPS;
-    private static final double COLLISION_THRESHOLD = 15.0;
+    // Threshold set to 2x Radius (2 * 20 = 40) so avoidance starts when visual
+    // circles touch
+    private static final double COLLISION_THRESHOLD = SimConfig.SAFETY_RADIUS * 2.0;
     private static final double PUSH_FORCE = 2.0;
 
     private GestionnaireEssaim gestionnaire;
     private Communication communication;
+
     private List<Obstacle> obstacles;
+    private List<RestrictedZone> restrictedZones;
     private Weather weather;
-    private ZoneOperation zone;
     private double timeScale = 1.0;
 
     private long lastTime = 0;
@@ -34,14 +37,15 @@ public class SimulationService extends AnimationTimer {
     // private double weatherDuration = 30.0;
     // private Random random = new Random();
 
-    public SimulationService(GestionnaireEssaim gestionnaire, ZoneOperation zone) {
+    public SimulationService(GestionnaireEssaim gestionnaire) {
         this.gestionnaire = gestionnaire;
         this.communication = new Communication(gestionnaire);
-        this.zone = zone;
         this.obstacles = new ArrayList<>();
+        this.restrictedZones = new ArrayList<>();
         this.weather = new Weather(10, 0, 0);
 
         initializeObstacles();
+        initializeRestrictedZones();
     }
 
     public void startSimulation() {
@@ -62,6 +66,18 @@ public class SimulationService extends AnimationTimer {
         // Underwater Obstacles (Reefs) - Z<0
         obstacles.add(new Obstacle(500, 400, -50, 20));
         obstacles.add(new Obstacle(800, 700, -100, 25));
+    }
+
+    private void initializeRestrictedZones() {
+        // "Black Zone" - Military Base or similar
+        // MOVED to Border (1800, 500)
+        // Radius: 150m
+        // Height: 0 to 120m
+        restrictedZones.add(new RestrictedZone("Zone Interdite 01", 1800, 500, 150, 0, 120));
+    }
+
+    public List<RestrictedZone> getRestrictedZones() {
+        return restrictedZones;
     }
 
     @Override
@@ -91,9 +107,10 @@ public class SimulationService extends AnimationTimer {
         updateAllAssets(fleet, dt);
         checkCollisions(fleet);
         checkBoundaries(fleet);
-        checkBoundaries(fleet);
+
         checkMissions(fleet);
         checkObstacles(fleet);
+        checkRestrictedZones(fleet);
 
         // Handle Mission Dispatching
         communication.handleMissions();
@@ -134,35 +151,100 @@ public class SimulationService extends AnimationTimer {
                 ActifMobile a1 = fleet.get(i);
                 ActifMobile a2 = fleet.get(j);
 
-                if (Math.abs(a1.getZ() - a2.getZ()) > 50)
-                    continue;
-
                 double dx = a1.getX() - a2.getX();
                 double dy = a1.getY() - a2.getY();
-                double dist = Math.sqrt(dx * dx + dy * dy);
+                double dz = a1.getZ() - a2.getZ();
+                double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                // Early Warning Zone: 60m (1.5x Collision Threshold)
+                // Warn BEFORE action
+                if (dist < 60.0 && dist >= COLLISION_THRESHOLD) {
+                    if (a1 instanceof ActifAerien && a2 instanceof ActifAerien) {
+                        // Only warn if they are converging? For simplicity, prox warning
+                        a1.setCollisionWarning("Proximité... (Préparation)");
+                        a2.setCollisionWarning("Proximité... (Préparation)");
+                    }
+                }
 
                 if (dist < COLLISION_THRESHOLD) {
-                    handleCollision(a1, a2, dx, dy, dist);
+                    handleCollision(a1, a2, dx, dy, dz, dist);
                 }
             }
         }
     }
 
-    private void handleCollision(ActifMobile a1, ActifMobile a2, double dx, double dy, double dist) {
+    private void handleCollision(ActifMobile a1, ActifMobile a2, double dx, double dy, double dz, double dist) {
         if (dist < 0.1)
             dist = 0.1;
+
+        // Basic Separation Force
         double pushX = (dx / dist) * PUSH_FORCE;
         double pushY = (dy / dist) * PUSH_FORCE;
+        double pushZ = (dz / dist) * PUSH_FORCE;
 
-        a1.setX(a1.getX() + pushX);
-        a1.setY(a1.getY() + pushY);
-        a2.setX(a2.getX() - pushX);
-        a2.setY(a2.getY() - pushY);
+        boolean a1Moving = isMoving(a1);
+        boolean a2Moving = isMoving(a2);
+
+        // --- 1. AVOIDANCE PHYSICS (Horizontal & Vertical) ---
+        if (a1Moving && a2Moving) {
+            // Both active: Mutual avoidance
+            a1.setX(a1.getX() + pushX);
+            a1.setY(a1.getY() + pushY);
+            a1.setZ(a1.getZ() + pushZ);
+            a2.setX(a2.getX() - pushX);
+            a2.setY(a2.getY() - pushY);
+            a2.setZ(a2.getZ() - pushZ);
+
+            if (a1 instanceof ActifAerien && a2 instanceof ActifAerien) {
+                ActifMobile higher = (a1.getZ() >= a2.getZ()) ? a1 : a2;
+                ActifMobile lower = (a1 == higher) ? a2 : a1;
+                // Active vs Active: Both adjust slighly
+                higher.setZ(higher.getZ() + 2.0); // Gentle +2m
+                higher.setCollisionWarning("Evitement (MONTER)");
+                lower.setCollisionWarning("Evitement (DESCENDRE)");
+            }
+        } else if (a1Moving && !a2Moving) {
+            // Only A1 moves (A2 is static target/obstacle)
+            a1.setX(a1.getX() + pushX * 2.0); // Double force to clear gap alone
+            a1.setY(a1.getY() + pushY * 2.0);
+            a1.setZ(a1.getZ() + pushZ * 2.0);
+
+            if (a1 instanceof ActifAerien && a2 instanceof ActifAerien) {
+                a1.setZ(a1.getZ() + 2.0); // Fly Over +2m
+                a1.setCollisionWarning("Evitement (SURVOL)");
+            }
+        } else if (!a1Moving && a2Moving) {
+            // Only A2 moves
+            a2.setX(a2.getX() - pushX * 2.0);
+            a2.setY(a2.getY() - pushY * 2.0);
+            a2.setZ(a2.getZ() - pushZ * 2.0);
+
+            if (a1 instanceof ActifAerien && a2 instanceof ActifAerien) {
+                a2.setZ(a2.getZ() + 2.0); // Fly Over +2m
+                a2.setCollisionWarning("Evitement (SURVOL)");
+            }
+        } else {
+            // Both Static: Slight nudging to prevent perfect overlap issues
+            a1.setX(a1.getX() + pushX * 0.1);
+            a2.setX(a2.getX() - pushX * 0.1);
+        }
+
+        // Slow down active participants
+        if (a1Moving)
+            a1.setSpeedModifier(0.5);
+        if (a2Moving)
+            a2.setSpeedModifier(0.5);
+    }
+
+    private boolean isMoving(ActifMobile a) {
+        return a.getState() == ActifMobile.AssetState.MOVING_TO_TARGET ||
+                a.getState() == ActifMobile.AssetState.EXECUTING_MISSION ||
+                a.getState() == ActifMobile.AssetState.RETURNING_TO_BASE;
     }
 
     private void checkBoundaries(List<ActifMobile> fleet) {
-        double maxX = (zone != null) ? zone.getMaxX() : 1000;
-        double maxY = (zone != null) ? zone.getMaxY() : 1000;
+        double maxX = SimConfig.WORLD_WIDTH;
+        double maxY = SimConfig.WORLD_HEIGHT;
 
         for (ActifMobile asset : fleet) {
             if (asset.getX() < 0)
@@ -173,6 +255,70 @@ public class SimulationService extends AnimationTimer {
                 asset.setY(0);
             if (asset.getY() > maxY)
                 asset.setY(maxY);
+        }
+    }
+
+    private void checkRestrictedZones(List<ActifMobile> fleet) {
+        if (restrictedZones == null)
+            return;
+
+        for (ActifMobile asset : fleet) {
+            for (RestrictedZone zone : restrictedZones) {
+                // 1. Vertical Check/Type Check
+                // RECON DRONES: Authorized to enter (Can pass freely)
+                if (asset instanceof DroneReconnaissance)
+                    continue;
+
+                // OTHERS (Logistics, etc): Must be ABOVE the zone to pass
+                if (asset.getZ() > zone.getMaxZ()) {
+                    // But wait, Logistics are NOT allowed even high?
+                    // User said "drone logistics try to enter -> block"
+                    // If we strictly block Logistics everywhere in this cylinder:
+                    if (asset instanceof DroneLogistique) {
+                        // Logistics blocked REGARDLESS of height (Unauthorized Airspace)
+                        // Fall through to distance check
+                    } else {
+                        // Other assets (standard) can fly over
+                        continue;
+                    }
+                }
+                if (asset.getZ() < zone.getMinZ())
+                    continue; // Below zone
+
+                // 2. Horizontal Distance Check
+                double dx = asset.getX() - zone.getX();
+                double dy = asset.getY() - zone.getY();
+                double dist = Math.sqrt(dx * dx + dy * dy);
+                double proximity = dist - zone.getRadius();
+
+                // 3. Violation (Inside)
+                if (proximity <= 0) {
+                    // Inside! Push OUT Hard
+                    double push = PUSH_FORCE * 3.0;
+                    if (dist < 0.1)
+                        dist = 0.1;
+
+                    asset.setX(asset.getX() + (dx / dist) * push);
+                    asset.setY(asset.getY() + (dy / dist) * push);
+
+                    asset.setCollisionWarning("VIOLATION ZONE (MISSION ÉCHOUÉE)");
+                    asset.setSpeedModifier(0.0); // Stop?
+                    asset.setState(ActifMobile.AssetState.STOPPED);
+
+                    // Fail Mission
+                    if (asset.getCurrentMission() != null) {
+                        asset.getCurrentMission().fail("Violation Zone Interdite");
+                    }
+                }
+                // 4. Warning (Approaching) - < 40m from edge
+                else if (proximity < 40.0) {
+                    asset.setCollisionWarning("Zone Interdite Proche (<" + (int) proximity + "m)");
+                    // Gentle push back
+                    double push = PUSH_FORCE * 0.5;
+                    asset.setX(asset.getX() + (dx / dist) * push);
+                    asset.setY(asset.getY() + (dy / dist) * push);
+                }
+            }
         }
     }
 
@@ -195,9 +341,6 @@ public class SimulationService extends AnimationTimer {
     private void checkObstacles(List<ActifMobile> fleet) {
         for (ActifMobile asset : fleet) {
             for (Obstacle obs : obstacles) {
-                // Check if vertically aligned (within 50m)
-                if (Math.abs(asset.getZ() - obs.getZ()) > 50)
-                    continue;
 
                 if (obs.isCollision(asset.getX(), asset.getY(), asset.getZ())) {
                     double dx = asset.getX() - obs.getX();
@@ -209,22 +352,27 @@ public class SimulationService extends AnimationTimer {
                     double pushX = (dx / dist) * PUSH_FORCE * 2;
                     double pushY = (dy / dist) * PUSH_FORCE * 2;
 
-                    // SMART AVOIDANCE LOGIC
+                    // SMART AVOIDANCE LOGIC - IMPROVED
+                    // 1. Slow Down
+                    asset.setSpeedModifier(0.3); // Reduce speed to 30% for caution
+
                     if (asset instanceof ActifAerien) {
-                        // Drones: Fly OVER (Increase Altitude)
-                        // Also push slightly away to clear the edge
-                        asset.setZ(asset.getZ() + PUSH_FORCE * 2);
-                        asset.setX(asset.getX() + pushX * 0.5);
-                        asset.setY(asset.getY() + pushY * 0.5);
+                        // Drones: Fly OVER (Strong Increase in Altitude)
+                        // Push Z hard to clear obstacle
+                        asset.setZ(asset.getZ() + PUSH_FORCE * 5);
+
+                        // Mild sideways push to ensure we don't get stuck perfectly center
+                        asset.setX(asset.getX() + pushX * 0.2);
+                        asset.setY(asset.getY() + pushY * 0.2);
+
                     } else if (asset instanceof VehiculeSousMarin) {
                         // Subs: Dive UNDER (Decrease Depth) if possible
                         // Limit max depth to -200 for safety
                         if (asset.getZ() > -200) {
-                            asset.setZ(asset.getZ() - PUSH_FORCE * 2);
+                            asset.setZ(asset.getZ() - PUSH_FORCE * 5);
                         }
-                        // Also push sideways
-                        asset.setX(asset.getX() + pushX);
-                        asset.setY(asset.getY() + pushY);
+                        asset.setX(asset.getX() + pushX * 0.5);
+                        asset.setY(asset.getY() + pushY * 0.5);
                     } else {
                         // Surface Vessels: Go AROUND
                         asset.setX(asset.getX() + pushX);

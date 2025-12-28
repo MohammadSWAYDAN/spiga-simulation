@@ -1,7 +1,10 @@
 package com.spiga.ui;
 
+import com.spiga.core.SimConfig;
+
 import com.spiga.core.ActifMobile;
 import com.spiga.environment.Obstacle;
+import com.spiga.environment.RestrictedZone;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -28,7 +31,7 @@ public class SideViewCanvas extends Canvas {
         super(width, height);
     }
 
-    public void draw(List<ActifMobile> assets, List<Obstacle> obstacles) {
+    public void draw(List<ActifMobile> assets, List<Obstacle> obstacles, List<RestrictedZone> restrictedZones) {
         GraphicsContext gc = getGraphicsContext2D();
         double w = getWidth();
         double h = getHeight();
@@ -57,6 +60,32 @@ public class SideViewCanvas extends Canvas {
         // 2. Draw Axis
         drawAxis(gc, h, zeroY);
 
+        // 2b. Draw Restricted Zones (Background Layer)
+        if (restrictedZones != null) {
+            for (RestrictedZone z : restrictedZones) {
+                // Calculate X range
+                double minX = z.getX() - z.getRadius();
+                double maxX = z.getX() + z.getRadius();
+
+                // Map to Screen X
+                double screenX1 = (minX / SimConfig.WORLD_WIDTH) * (w - AXIS_WIDTH) + AXIS_WIDTH;
+                double screenX2 = (maxX / SimConfig.WORLD_WIDTH) * (w - AXIS_WIDTH) + AXIS_WIDTH;
+
+                // Map Z range to Screen Y
+                // Note: mapZtoY returns Y for a Z.
+                double topY = mapZtoY(z.getMaxZ(), zeroY, h);
+                double bottomY = mapZtoY(z.getMinZ(), zeroY, h);
+
+                // fillRect(x, y, w, h) -> Y is top-left
+                gc.setFill(Color.rgb(0, 0, 0, 0.3)); // Light Black
+                gc.fillRect(screenX1, topY, screenX2 - screenX1, bottomY - topY);
+
+                gc.setStroke(Color.BLACK);
+                gc.setLineWidth(1);
+                gc.strokeRect(screenX1, topY, screenX2 - screenX1, bottomY - topY);
+            }
+        }
+
         // Zone Labels
         gc.setFont(LABEL_FONT);
         gc.setFill(Color.rgb(50, 50, 50, 0.8));
@@ -71,11 +100,11 @@ public class SideViewCanvas extends Canvas {
                 if (obs.getY() < 300 || obs.getY() > 700)
                     continue;
 
-                double cx = (obs.getX() / 1000.0) * (w - AXIS_WIDTH) + AXIS_WIDTH;
+                double cx = (obs.getX() / SimConfig.WORLD_WIDTH) * (w - AXIS_WIDTH) + AXIS_WIDTH;
                 double cy = mapZtoY(obs.getZ(), zeroY, h);
 
                 // Scale radius down significantly
-                double rX = (obs.getRadius() / 1000.0) * (w - AXIS_WIDTH) * 0.5;
+                double rX = (obs.getRadius() / SimConfig.WORLD_WIDTH) * (w - AXIS_WIDTH) * 0.5;
                 double rY = (obs.getRadius() / range) * h * 0.5;
 
                 gc.setFill(Color.rgb(139, 69, 19, 0.3));
@@ -86,9 +115,17 @@ public class SideViewCanvas extends Canvas {
             }
         }
 
+        // 3b. Draw World Limits (Vertical Lines)
+        gc.setStroke(Color.RED);
+        gc.setLineWidth(4);
+        // Left Limit (X=0)
+        gc.strokeLine(AXIS_WIDTH, 0, AXIS_WIDTH, h);
+        // Right Limit (X=MAX)
+        gc.strokeLine(w - 2, 0, w - 2, h);
+
         // 4. Draw Assets
         for (ActifMobile asset : assets) {
-            double cx = (asset.getX() / 1000.0) * (w - AXIS_WIDTH) + AXIS_WIDTH;
+            double cx = (asset.getX() / SimConfig.WORLD_WIDTH) * (w - AXIS_WIDTH) + AXIS_WIDTH;
             double cy; // Will be calculated after drawZ
 
             // Icon with glow

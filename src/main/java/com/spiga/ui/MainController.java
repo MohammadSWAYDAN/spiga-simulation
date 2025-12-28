@@ -2,7 +2,7 @@ package com.spiga.ui;
 
 import com.spiga.core.*;
 import com.spiga.management.*;
-import com.spiga.environment.ZoneOperation;
+
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.StackPane;
@@ -43,8 +43,8 @@ public class MainController {
     private SimulationService simulationService;
     private MapCanvas mapCanvas;
     private SideViewCanvas sideViewCanvas;
+
     private AnimationTimer uiUpdateTimer;
-    private ZoneOperation zone;
     private boolean isPaused = false;
     private String pendingAssetType = null;
 
@@ -56,11 +56,10 @@ public class MainController {
 
     public void initialize() {
         gestionnaire = new GestionnaireEssaim();
-        zone = new ZoneOperation(0, 1000, 0, 1000);
-        simulationService = new SimulationService(gestionnaire, zone);
+        simulationService = new SimulationService(gestionnaire);
 
         // 1. Map Canvas (Top Down)
-        mapCanvas = new MapCanvas(1200, 900, zone);
+        mapCanvas = new MapCanvas(1200, 900);
         mapContainer.getChildren().add(mapCanvas);
 
         mapCanvas.setOnSelectionChanged(this::handleSelectionChanged);
@@ -136,9 +135,9 @@ public class MainController {
         // or internal logic
         List<ActifMobile> assets = gestionnaire.getFlotte();
         // Use MapCanvas to draw
-        mapCanvas.draw(assets, simulationService.getObstacles());
+        mapCanvas.draw(assets, simulationService.getObstacles(), simulationService.getRestrictedZones());
         if (sideViewCanvas != null) {
-            sideViewCanvas.draw(assets, simulationService.getObstacles());
+            sideViewCanvas.draw(assets, simulationService.getObstacles(), simulationService.getRestrictedZones());
         }
 
         // Periodic Health Check (every ~60 frames or 1 sec)
@@ -162,18 +161,27 @@ public class MainController {
         }
 
         for (ActifMobile a1 : assets) {
-            // 1. Proximity Check
+            // 1. Proximity Check (SwarmValidator)
             List<ActifMobile> others = assets.stream().filter(a -> a != a1).collect(Collectors.toList());
-            if (!SwarmValidator.isPlacementValid(a1.getX(), a1.getY(), others)) {
-                // STOP THE DRONE
-                if (a1.getState() != ActifMobile.AssetState.STOPPED) {
-                    a1.setState(ActifMobile.AssetState.STOPPED);
-                    a1.setTarget(a1.getX(), a1.getY(), a1.getZ()); // Reset Target
+            if (!SwarmValidator.isPlacementValid(a1.getX(), a1.getY(), a1.getZ(), others)) {
+                // ... (Existing code for hard stops, currently disabled) ...
 
-                    String msg = "⚠️ " + a1.getId() + " Trop Proche! (ARRÊT)";
-                    sidebarController.addAlert(msg);
-                    System.out.println("DEBUG: Violation stop triggered for " + a1.getId());
-                }
+                String msg = "⚠️ " + a1.getId() + " Trop Proche! (Avoidance Active)";
+                sidebarController.addAlert(msg);
+                System.out.println("DEBUG: Violation warning for " + a1.getId());
+            }
+
+            // 1b. PHYSICS/EARLY WARNING CHECK (Independent of strict placement validity)
+            // This captures the "Early Warning" (60m) and "Avoidance" (40m) set by
+            // SimulationService
+            if (a1.getCollisionWarning() != null) {
+                String msg = "⚠️ " + a1.getId() + ": " + a1.getCollisionWarning();
+                sidebarController.addAlert(msg);
+                // Clear warning after reading to prevent infinite sticky alerts if physics
+                // stops updating it (?)
+                // Actually, physics updates it every frame if condition is met.
+                // We clear it here so it doesn't persist if the condition stops being met.
+                a1.setCollisionWarning(null);
             }
 
             // 2. Sea Level Alert & Block (Splashdown Protection)
@@ -413,7 +421,8 @@ public class MainController {
 
     private void createAssetAt(String type, double x, double y) {
         // --- SAFETY CHECK ---
-        if (!SwarmValidator.isPlacementValid(x, y, gestionnaire.getFlotte())) {
+        // Preliminary check at Z=0 (surface assumption for initial click)
+        if (!SwarmValidator.isPlacementValid(x, y, 0, gestionnaire.getFlotte())) {
             String msg = "Placement Curseur refusé (Prox.)";
             if (sidebarController != null)
                 sidebarController.addAlert(msg);
@@ -478,7 +487,7 @@ public class MainController {
                 return;
             }
             // --- SAFETY CHECK ---
-            if (!SwarmValidator.isPlacementValid(x, y, gestionnaire.getFlotte())) {
+            if (!SwarmValidator.isPlacementValid(x, y, z, gestionnaire.getFlotte())) {
                 String msg = "Placement refusé (Prox.): Drone vs Essaim";
                 if (sidebarController != null)
                     sidebarController.addAlert(msg);
@@ -500,7 +509,7 @@ public class MainController {
 
     private void promptForBoatManual() {
         promptForCoordinates("Ajouter Navire", "Surface (Z = 0)", (x, y, z) -> {
-            if (!SwarmValidator.isPlacementValid(x, y, gestionnaire.getFlotte())) {
+            if (!SwarmValidator.isPlacementValid(x, y, z, gestionnaire.getFlotte())) {
                 if (sidebarController != null)
                     sidebarController.addAlert("Placement Navire refusé (Prox.)");
                 showAlert("Placement Invalide", "Trop proche d'un autre actif !");
@@ -519,7 +528,7 @@ public class MainController {
                 showAlert("Erreur", "Profondeur < 0 requise.");
                 return;
             }
-            if (!SwarmValidator.isPlacementValid(x, y, gestionnaire.getFlotte())) {
+            if (!SwarmValidator.isPlacementValid(x, y, z, gestionnaire.getFlotte())) {
                 if (sidebarController != null)
                     sidebarController.addAlert("Placement Sous-Marin refusé (Prox.)");
                 showAlert("Placement Invalide", "Trop proche d'un autre actif !");
@@ -574,7 +583,7 @@ public class MainController {
         // initial placement)
         List<ActifMobile> fleet = gestionnaire.getFlotte();
         for (ActifMobile a1 : fleet) {
-            if (!SwarmValidator.isPlacementValid(a1.getX(), a1.getY(),
+            if (!SwarmValidator.isPlacementValid(a1.getX(), a1.getY(), a1.getZ(),
                     fleet.stream().filter(a -> a != a1).collect(Collectors.toList()))) {
                 showAlert("Impossible de lancer",
                         "L'essaim n'est pas sécurisé !\nCertains drones sont trop proches.\nVérifiez les zones rouges.");
