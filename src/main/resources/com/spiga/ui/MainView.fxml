@@ -2,70 +2,106 @@
 
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.shape.Circle?>
+<?import javafx.scene.shape.Rectangle?>
 
+<!-- ROOT: BorderPane -->
 <BorderPane xmlns="http://javafx.com/javafx"
-    xmlns:fx="http://javafx.com/fxml" fx:controller="com.spiga.ui.MainController" prefHeight="900.0" prefWidth="1200.0">
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.spiga.ui.MainController"
+            prefWidth="1400" prefHeight="900"
+            styleClass="root-pane">
 
+    <!-- TOP: Toolbar -->
     <top>
-        <ToolBar>
-            <Button text="Add Drone" onAction="#handleAddDrone"/>
-            <Button text="Add Boat" onAction="#handleAddBoat"/>
-            <Button text="Add Sub" onAction="#handleAddSub"/>
-            <Button text="Select All" onAction="#handleSelectAll"/>
-            <Separator />
-            <Button text="Start Mission" onAction="#handleStartMission"/>
-            <Separator />
-            <Button fx:id="btnPlayPause" text="Play" onAction="#handlePlayPause"/>
-            <Label text="Speed:" />
-            <Slider fx:id="sliderSpeed" min="0.1" max="5.0" value="1.0" />
-            <Separator />
-            <VBox alignment="CENTER">
-                <Label text="Wind" style="-fx-font-size: 10px;"/>
-                <Slider fx:id="sliderWind" min="0" max="100" value="10" prefWidth="100"/>
-            </VBox>
-            <VBox alignment="CENTER">
-                <Label text="Rain" style="-fx-font-size: 10px;"/>
-                <Slider fx:id="sliderRain" min="0" max="100" value="0" prefWidth="100"/>
-            </VBox>
-            <VBox alignment="CENTER">
-                <Label text="Waves" style="-fx-font-size: 10px;"/>
-                <Slider fx:id="sliderWaves" min="0" max="5.0" value="0" prefWidth="80"/>
-            </VBox>
-        </ToolBar>
+        <HBox spacing="10" alignment="CENTER_LEFT" styleClass="top-bar">
+             <padding>
+                <Insets top="5" right="10" bottom="5" left="10"/>
+             </padding>
+
+             <!-- Asset Buttons -->
+             <Button text="Add Drone" onAction="#handleAddDrone" styleClass="tool-button"/>
+             <Button text="Add Boat" onAction="#handleAddBoat" styleClass="tool-button"/>
+             <Button text="Add Sub" onAction="#handleAddSub" styleClass="tool-button"/>
+             <Button text="Select All" onAction="#handleSelectAll" styleClass="tool-button"/>
+             
+             <Separator orientation="VERTICAL" />
+             
+             <!-- Mission & Play -->
+
+
+             <Separator orientation="VERTICAL" />
+
+             <!-- Sliders Section -->
+             <HBox spacing="15" alignment="CENTER_LEFT">
+                 <HBox spacing="5" alignment="CENTER_LEFT">
+                     <Label text="Speed:" styleClass="slider-label"/>
+                     <Slider fx:id="sliderSpeed" min="0.1" max="5.0" value="1.0" prefWidth="80"/>
+                 </HBox>
+
+                 <HBox spacing="5" alignment="CENTER_LEFT">
+                     <Label text="Wind" styleClass="slider-label-small"/>
+                     <VBox alignment="CENTER" spacing="0">
+                        <Label fx:id="lblWindValue" text="0%" styleClass="slider-value"/>
+                        <Slider fx:id="sliderWind" min="0" max="100" value="0" prefWidth="60"/>
+                     </VBox>
+                 </HBox>
+
+                 <HBox spacing="5" alignment="CENTER_LEFT">
+                     <Label text="Rain" styleClass="slider-label-small"/>
+                     <VBox alignment="CENTER" spacing="0">
+                        <Label fx:id="lblRainValue" text="0%" styleClass="slider-value"/>
+                        <Slider fx:id="sliderRain" min="0" max="100" value="0" prefWidth="60"/>
+                     </VBox>
+                 </HBox>
+
+                 <HBox spacing="5" alignment="CENTER_LEFT">
+                     <Label text="Waves" styleClass="slider-label-small"/>
+                     <VBox alignment="CENTER" spacing="0">
+                        <Label fx:id="lblWavesValue" text="0%" styleClass="slider-value"/>
+                        <Slider fx:id="sliderWaves" min="0" max="100" value="0" prefWidth="60"/>
+                     </VBox>
+                 </HBox>
+             </HBox>
+
+             <Region HBox.hgrow="ALWAYS"/>
+             <Label fx:id="lblStatus" text="Ready" styleClass="status-label"/>
+        </HBox>
     </top>
 
+    <!-- LEFT: Sidebar -->
     <left>
-        <fx:include fx:id="sidebar" source="Sidebar.fxml" />
+        <VBox spacing="0" styleClass="side-panel-container">
+             <fx:include fx:id="sidebar" source="Sidebar.fxml" />
+        </VBox>
     </left>
 
-    <right>
-        <fx:include fx:id="missionPanel" source="MissionPanel.fxml" />
-    </right>
-
+    <!-- CENTER: Map VBox (Map Scroll + Bottom Profile) -->
     <center>
-        <SplitPane orientation="VERTICAL" dividerPositions="0.65">
-            <!-- Top: Map View (X, Y) - Compact with Scrollbars -->
-            <ScrollPane hbarPolicy="ALWAYS" vbarPolicy="ALWAYS" fitToWidth="false" fitToHeight="false" pannable="true">
-                <StackPane fx:id="mapContainer" style="-fx-background-color: #001133;">
-                    <!-- MapCanvas added dynamically -->
+        <SplitPane orientation="VERTICAL" dividerPositions="0.75" styleClass="center-split-pane">
+            <!-- 1. Map Area (Scrollable) -->
+            <ScrollPane fx:id="mapScroll" fitToWidth="true" fitToHeight="true" styleClass="map-scroll-pane">
+                <StackPane fx:id="mapContainer" styleClass="map-background" minWidth="2000" minHeight="2000">
+                     <!-- MapPane added here via Controller -->
                 </StackPane>
             </ScrollPane>
-
-            <!-- Bottom: Profile View (X, Z) - Larger -->
-            <!-- Bottom: Profile View (X, Z) - Larger -->
-            <ScrollPane hbarPolicy="ALWAYS" vbarPolicy="ALWAYS" fitToWidth="true" fitToHeight="true" pannable="true">
-                <StackPane fx:id="sideViewContainer" style="-fx-background-color: black;">
-                    <Label text="Profile View (Side)" style="-fx-text-fill: white; -fx-padding: 5;" StackPane.alignment="TOP_LEFT"/>
-                    <!-- SideViewCanvas added dynamically -->
-                </StackPane>
-            </ScrollPane>
+             
+             <!-- 2. Profile View (Fixed Height Container) -->
+             <StackPane fx:id="sideViewContainer" styleClass="profile-view-container" minHeight="200" prefHeight="250">
+                 <!-- SideViewCanvas added here -->
+                 <Label text="AIR ZONE" StackPane.alignment="TOP_LEFT" styleClass="zone-label-air">
+                    <padding><Insets top="10" left="10"/></padding>
+                 </Label>
+             </StackPane>
         </SplitPane>
     </center>
 
-    <bottom>
-        <HBox spacing="10" style="-fx-padding: 5;">
-            <Label text="Status: Ready" fx:id="lblStatus"/>
-        </HBox>
-    </bottom>
-
+    <!-- RIGHT: Mission Panel -->
+    <right>
+        <VBox spacing="0" styleClass="side-panel-container">
+            <fx:include fx:id="missionPanel" source="MissionPanel.fxml" />
+        </VBox>
+    </right>
+    
 </BorderPane>

@@ -1,5 +1,7 @@
 package com.spiga.core;
 
+import com.spiga.environment.Weather;
+
 /**
  * Classe Abstraite Intermediaire : Actif Marin
  * 
@@ -31,7 +33,7 @@ public abstract class ActifMarin extends ActifMobile {
     }
 
     @Override
-    protected double getSpeedEfficiency(com.spiga.environment.Weather w) {
+    protected double getSpeedEfficiency(Weather w) {
         // Base Wind Drag (Less relevant for underwater, but keeps inheritance chain)
         double efficiency = super.getSpeedEfficiency(w);
 

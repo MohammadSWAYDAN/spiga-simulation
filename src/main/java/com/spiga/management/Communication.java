@@ -1,7 +1,8 @@
 package com.spiga.management;
 
 import com.spiga.core.ActifMobile;
-import com.spiga.core.Communicable;
+// import com.spiga.core.ActifMobile; // unused
+// import com.spiga.core.Communicable; // unused
 import com.spiga.core.ActifAerien;
 import com.spiga.core.ActifMarin;
 import com.spiga.core.DroneLogistique;

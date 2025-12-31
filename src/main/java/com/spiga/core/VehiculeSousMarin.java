@@ -17,49 +17,57 @@ package com.spiga.core;
  */
 public class VehiculeSousMarin extends ActifMarin {
 
+    private long lastDepthAlertTime = 0;
+    private static final long ALERT_COOLDOWN = 5000; // 5 seconds
+
     public VehiculeSousMarin(String id, double x, double y, double profondeur) {
         // Constructeur parent : Vitesse=20km/h, Autonomie=72h
-        super(id, x, y, profondeur, 20.0, 72.0);
+        super(id, x, y, profondeur, 20.0, 6.0);
         this.profondeurMax = 0;
-        this.profondeurMin = -1000; // Peut descendre à -1000m
-    }
-
-    @Override
-    protected double getWeatherImpact(com.spiga.environment.Weather w) {
-        double impact = 1.0;
-        // Less sensitive to wind/rain
-        // Sensitive to "Currents" (simulated via Waves for now as proxy)
-        if (w.getSeaWaveHeight() > 2.0) {
-            impact += 0.1; // Only rough seas affect subsurface noticeably
-        }
-        return impact;
+        this.profondeurMin = -150; // Contrainte -150m
     }
 
     @Override
     protected void clampPosition() {
-        // Enforce [-150, -1]
-        if (z > -1)
-            z = -1;
+        // Enforce [-150, 0]
+        if (z > 0)
+            z = 0;
         if (z < -150)
             z = -150;
     }
 
     @Override
+    public void setTarget(double x, double y, double z) {
+        double clampedZ = z;
+
+        // Constraint 1: Max Height 0
+        if (clampedZ > 0) {
+            System.out.println(id + ": Rejet cible Z=" + clampedZ + " (Surface). Force à 0m.");
+            clampedZ = 0;
+        }
+
+        // Constraint 2: Min Depth -150
+        if (clampedZ < -150) {
+            long now = System.currentTimeMillis();
+            if (now - lastDepthAlertTime > ALERT_COOLDOWN) {
+                setCollisionWarning("⚠️ PROFONDEUR LIMITE (-150m) ATTEINTE!");
+                lastDepthAlertTime = now;
+                System.out.println("⚠️ ALERTE: " + id + " bloque à -150m.");
+            }
+            clampedZ = -150;
+        }
+
+        super.setTarget(x, y, clampedZ);
+    }
+
+    @Override
     public void deplacer(double targetX, double targetY, double targetZ) {
-        // Enforce Underwater Constraints [-500, -1]
-        if (targetZ > -1) {
-            System.out.println("⚠️ " + id + ": Rejet cible Z=" + targetZ + " (Surface/Air). Force à -1m.");
-            targetZ = -1;
-        }
-        if (targetZ < -500) {
-            System.out.println("⚠️ " + id + ": Rejet cible Z=" + targetZ + " (Trop profond). Force à -500m.");
-            targetZ = -500;
-        }
-        super.deplacer(targetX, targetY, targetZ);
+        // Delegate to setTarget for consistency
+        setTarget(targetX, targetY, targetZ);
     }
 
     @Override
     public double getConsommation() {
-        return 0.014; // 1.4% par heure
+        return 1.0; // 1.0h consumed per hour
     }
 }

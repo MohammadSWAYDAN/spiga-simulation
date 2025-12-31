@@ -10,50 +10,85 @@ package com.spiga.environment;
  * actifs (via getWeatherImpact).
  */
 public class Weather {
-    private double windSpeed; // km/h
-    private double windDirection; // degrees
-    private double rainIntensity; // 0-100
-    private double seaWaveHeight; // New Feature
+    // Authorized Normalized Fields [0.0 - 1.0]
+    private double windIntensity; // 0.0 = Calm, 1.0 = Storm (100 km/h arbitrary max)
+    private double rainIntensity; // 0.0 = Dry, 1.0 = Heavy Rain
+    private double waveIntensity; // 0.0 = Flat, 1.0 = High Waves (5m arbitrary max)
 
-    /**
-     * Constructeur complet.
-     */
+    private double windDirection; // degrees (keep as is)
+
     public Weather(double windSpeed, double windDirection, double rainIntensity) {
-        this.windSpeed = windSpeed;
         this.windDirection = windDirection;
-        this.rainIntensity = rainIntensity;
-        this.seaWaveHeight = 0.0; // Default
+        setWindSpeed(windSpeed); // Convert to intensity
+        setRainIntensity(rainIntensity); // Convert/Clamp
+        this.waveIntensity = 0.0;
     }
 
-    // Manual Control Setters
-    public void setWindSpeed(double windSpeed) {
-        this.windSpeed = windSpeed;
+    // --- Normalized Getters/Setters [0.0 - 1.0] ---
+
+    public double getWindIntensity() {
+        return windIntensity;
     }
 
-    public void setRainIntensity(double rainIntensity) {
-        this.rainIntensity = rainIntensity;
-    }
-
-    public void setSeaWaveHeight(double h) {
-        this.seaWaveHeight = h;
-    }
-
-    public double getWindSpeed() {
-        return windSpeed;
-    }
-
-    public double getWindDirection() {
-        return windDirection;
+    public void setWindIntensity(double v) {
+        this.windIntensity = clamp(v);
     }
 
     public double getRainIntensity() {
         return rainIntensity;
     }
 
-    // New Feature
-    // Field moved to top
+    public void setRainIntensity(double v) {
+        this.rainIntensity = clamp(v);
+    }
+
+    public double getWaveIntensity() {
+        return waveIntensity;
+    }
+
+    public void setWaveIntensity(double v) {
+        this.waveIntensity = clamp(v);
+    }
+
+    // --- Backward Compatibility / Helper Methods ---
+
+    public double getWindSpeed() {
+        return windIntensity * 100.0; // Max 100 km/h
+    }
+
+    public void setWindSpeed(double kmh) {
+        this.windIntensity = clamp(kmh / 100.0);
+    }
 
     public double getSeaWaveHeight() {
-        return seaWaveHeight;
+        return waveIntensity * 5.0; // Max 5m
+    }
+
+    public void setSeaWaveHeight(double h) {
+        this.waveIntensity = clamp(h / 5.0);
+    }
+
+    // Rain legacy (0-100 scale in UI, but often used as 0-100)
+    // The previous code had rainIntensity as 0-100.
+    // The NEW requirement says "rainIntensity" [0..1].
+    // To handle legacy calls (check other files), we might need to check how it's
+    // used.
+    // MainController passes slider values (0-100).
+    // Let's assume setRainIntensity(double) handles the normalized logic,
+    // and we create a specific legacy setter if needed, OR we adapt the caller.
+    // WAIT: The prompt says "MODÈLE ... Assure 3 champs normalisés [0..1]".
+    // This implies I should change the internal storage.
+    // I will update MainController's binding to divide by 100.
+
+    public double getWindDirection() {
+        return windDirection;
+    }
+
+    private double clamp(double v) {
+        if (v < 0)
+            return 0.0;
+        if (v > 1)
+            return 1.0;
+        return v;
     }
 }

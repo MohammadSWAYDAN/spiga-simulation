@@ -44,6 +44,14 @@ public class GestionnaireEssaim {
     }
 
     /**
+     * Supprime un actif par son ID.
+     */
+    public void supprimerActif(String id) {
+        flotte.removeIf(a -> a.getId().equals(id));
+        System.out.println("✗ Actif supprimé: " + id);
+    }
+
+    /**
      * Retourne la flotte complète.
      */
     public List<ActifMobile> getFlotte() {
@@ -66,11 +74,14 @@ public class GestionnaireEssaim {
      */
     public void demarrerMission(Mission mission, List<ActifMobile> essaim) {
         System.out.println("🚀 Démarrage mission: " + mission.getTitre());
-        mission.assign();
+        // mission.assign(); // Deprecated simple assign
+        mission.assignActifs(essaim);
+
         for (ActifMobile actif : essaim) {
             actif.assignMission(mission);
         }
-        mission.start();
+        // Start mission clock
+        mission.start(System.currentTimeMillis() / 1000);
     }
 
     /**

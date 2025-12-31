@@ -2,26 +2,49 @@
 
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.shape.Circle?>
 
 <VBox xmlns="http://javafx.com/javafx"
-    xmlns:fx="http://javafx.com/fxml" fx:controller="com.spiga.ui.MissionController" spacing="8" style="-fx-padding: 8; -fx-background-color: #e0e0e0; -fx-border-color: #cccccc; -fx-border-width: 0 0 0 1;" prefWidth="300" minWidth="300">
+    xmlns:fx="http://javafx.com/fxml" 
+    fx:controller="com.spiga.ui.MissionController" 
+    spacing="0"
+    prefWidth="300" minWidth="300"
+    style="-fx-background-color: white;">
 
-    <Label text="Missions" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+    <!-- SECTION 1: Missions List -->
+    <Label text="Missions" styleClass="header-label">
+        <padding><Insets top="10" left="10" bottom="5"/></padding>
+    </Label>
 
-    <ListView fx:id="listMissions" VBox.vgrow="ALWAYS" prefHeight="120"/>
-
-    <Separator />
-
-    <Label text="New Mission" style="-fx-font-weight: bold;"/>
-    <TextField fx:id="txtMissionTitle" promptText="Mission Title"/>
-    <!-- Type selection removed - Automated based on asset -->
-    <Button fx:id="btnSetTarget" text="Set Target" onAction="#handleSetTarget" maxWidth="Infinity" style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
-    <Label fx:id="lblTargetCoords" text="Target: Not Set" style="-fx-font-size: 10px;"/>
-    <Button text="Create Mission" onAction="#handleCreateMission" maxWidth="Infinity" style="-fx-background-color: #2196F3; -fx-text-fill: white;"/>
+    <ListView fx:id="listMissions" VBox.vgrow="ALWAYS" prefHeight="200" styleClass="list-view"/>
 
     <Separator />
 
-    <Label text="Mission Details" style="-fx-font-weight: bold;"/>
-    <Label fx:id="lblMissionStatus" text="Status: -" wrapText="true"/>
+    <!-- SECTION 2: New Mission Form -->
+    <Label text="New Mission" styleClass="header-label">
+        <padding><Insets top="10" left="10" bottom="5"/></padding>
+    </Label>
+    
+    <VBox spacing="10" style="-fx-padding: 10;">
+        <TextField fx:id="txtMissionTitle" promptText="Mission Title" />
+        
+        <Button fx:id="btnSetTarget" text="Set Target" onAction="#handleSetTarget" maxWidth="Infinity"
+                styleClass="button-green" style="-fx-background-radius: 4;"/>
+        
+        <Label fx:id="lblTargetCoords" text="A: Position actuelle -> B: (1270, 980, 100)" 
+               wrapText="true" style="-fx-font-size: 10px; -fx-text-fill: #64748B;"/>
+        
+        <Button text="Create Mission" onAction="#handleCreateMission" maxWidth="Infinity"
+                styleClass="button-blue" style="-fx-background-radius: 4;"/>
+    </VBox>
+
+    <Separator />
+
+    <!-- SECTION 3: Details footer -->
+    <Label text="Mission Details" styleClass="header-label">
+        <padding><Insets top="10" left="10" bottom="5"/></padding>
+    </Label>
+    <Label fx:id="lblMissionStatus" text="Sélectionné: new mission" style="-fx-padding: 0 10 10 10; -fx-text-fill: gray;"/>
 
 </VBox>

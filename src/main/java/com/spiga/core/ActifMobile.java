@@ -1,6 +1,11 @@
 package com.spiga.core;
 
+import com.spiga.environment.RestrictedZone;
 import com.spiga.management.Mission;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 
 /**
  * Classe Abstraite : ActifMobile
@@ -38,11 +43,64 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     }
 
     // --- ENCAPSULATION ---
+    public enum NavigationMode {
+        NORMAL, AVOIDING
+    }
+
     // Protected : Accessible par les classes filles (Héritage)
     protected String id;
     protected double x, y, z; // Position 3D
     protected double vitesseMax;
     protected double autonomieMax; // Heures
+
+    protected NavigationMode navigationMode = NavigationMode.NORMAL;
+    protected double tempTargetX, tempTargetY, tempTargetZ;
+    protected long avoidanceEndTime = 0;
+
+    protected Queue<Mission> missionQueue = new LinkedList<>(); // Mission Queue
+
+    // Environment Awareness
+    public static List<RestrictedZone> KNOWN_ZONES = new ArrayList<>();
+
+    // Waypoint Chaining (for Obstacle/Zone Avoidance)
+    protected Double finalTargetX, finalTargetY, finalTargetZ;
+
+    // Getters/Setters for Navigation
+    public NavigationMode getNavigationMode() {
+        return navigationMode;
+    }
+
+    public void setNavigationMode(NavigationMode mode) {
+        this.navigationMode = mode;
+    }
+
+    public long getAvoidanceEndTime() {
+        return avoidanceEndTime;
+    }
+
+    public void setAvoidanceEndTime(long time) {
+        this.avoidanceEndTime = time;
+    }
+
+    public void setTempTarget(double x, double y, double z) {
+        this.tempTargetX = x;
+        this.tempTargetY = y;
+        this.tempTargetZ = z;
+    }
+
+    // Temp target getters
+    public double getTempTargetX() {
+        return tempTargetX;
+    }
+
+    public double getTempTargetY() {
+        return tempTargetY;
+    }
+
+    public double getTempTargetZ() {
+        return tempTargetZ;
+    }
+
     protected double autonomieActuelle;
     protected EtatOperationnel etat; // Enumération d'états
 
@@ -53,7 +111,18 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     protected Mission currentMission;
     protected boolean selected;
     protected double speedModifier = 1.0;
+    protected double weatherSpeedModifier = 1.0;
     protected String collisionWarning = null; // Alert message for UI
+
+    // AVOIDANCE FIELDS - Consolidated
+    // navMode removed, using navigationMode defined above
+    // tempTarget fields removed, using those defined above
+
+    // Dynamic Validation Constants & State
+    protected static final double SEA_APPROACH_THRESHOLD = 20.0;
+    protected static final double MIN_HOVER_Z_SEA = 2.0;
+    protected long lastSeaAlertTime = 0;
+    protected static final long SEA_ALERT_COOLDOWN = 5000; // 5 seconds
 
     /**
      * Constructeur.
@@ -82,10 +151,31 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
 
     // Updated update signature to include Weather
     public void update(double dt, com.spiga.environment.Weather weather) {
-        speedModifier = 1.0; // Reset every frame, SimulationService will override if collision detected
+        speedModifier = 1.0; // Reset every frame
+
+        if (weather != null) {
+            weatherSpeedModifier = getSpeedMultiplier(weather);
+        } else {
+            weatherSpeedModifier = 1.0;
+        }
+
+        // Check Avoidance Expiry
+        if (navigationMode == NavigationMode.AVOIDING) {
+            long now = System.currentTimeMillis();
+            if (now > avoidanceEndTime) {
+                navigationMode = NavigationMode.NORMAL;
+                setCollisionWarning(null); // Clear warning
+            }
+        }
+
         if (state == AssetState.MOVING_TO_TARGET || state == AssetState.EXECUTING_MISSION
-                || state == AssetState.RETURNING_TO_BASE) {
-            moveTowards(targetX, targetY, targetZ, dt, weather); // Pass weather for drag
+                || state == AssetState.RETURNING_TO_BASE || navigationMode == NavigationMode.AVOIDING) {
+
+            double effectiveTargetX = (navigationMode == NavigationMode.AVOIDING) ? tempTargetX : targetX;
+            double effectiveTargetY = (navigationMode == NavigationMode.AVOIDING) ? tempTargetY : targetY;
+            double effectiveTargetZ = (navigationMode == NavigationMode.AVOIDING) ? tempTargetZ : targetZ;
+
+            moveTowards(effectiveTargetX, effectiveTargetY, effectiveTargetZ, dt, weather); // Pass weather for drag
             updateBattery(dt, weather);
         }
         clampPosition(); // Force constraints every frame
@@ -98,29 +188,109 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
      */
     protected abstract void clampPosition();
 
-    public void moveTowards(double targetX, double targetY, double targetZ, double dt,
+    public void engageAvoidance(double tx, double ty, double tz, double durationSeconds) {
+        this.navigationMode = NavigationMode.AVOIDING;
+        this.state = AssetState.MOVING_TO_TARGET; // Force state to Active
+        this.tempTargetX = tx;
+        this.tempTargetY = ty;
+        this.tempTargetZ = tz;
+        this.avoidanceEndTime = System.currentTimeMillis() + (long) (durationSeconds * 1000);
+        this.setCollisionWarning("EVITEMENT TEMPORAIRE");
+    }
+
+    public void moveTowards(double tx, double ty, double tz_desired, double dt,
             com.spiga.environment.Weather weather) {
-        double dx = targetX - x;
-        double dy = targetY - y;
-        double dz = targetZ - z;
+
+        // 1. Dynamic Validation / Sea Constraint Logic
+        // Determine "Safe" Z to aim for based on physics/type, not just user wish.
+        double safeTargetZ = tz_desired;
+
+        // SEA RULE for Drones (specifically Logistics or just Aerial)
+        if (this instanceof com.spiga.core.DroneLogistique || this instanceof com.spiga.core.DroneReconnaissance) {
+            // Check if approaching sea (when current Z is low AND we are asked to go lower
+            // or stay low)
+            if (z < SEA_APPROACH_THRESHOLD && tz_desired < MIN_HOVER_Z_SEA) {
+                long now = System.currentTimeMillis();
+                if (now - lastSeaAlertTime > SEA_ALERT_COOLDOWN) {
+                    setCollisionWarning("⚠️ APPROCHE MER! Maintien Altitude.");
+                    lastSeaAlertTime = now;
+                }
+                // Clamp Target Z to Hover
+                safeTargetZ = Math.max(tz_desired, MIN_HOVER_Z_SEA);
+            }
+
+            // Hard Stop / Hover if too low
+            // If we are already near water, force hover target
+            if (z <= MIN_HOVER_Z_SEA + 1.0) {
+                if (safeTargetZ < MIN_HOVER_Z_SEA) {
+                    safeTargetZ = MIN_HOVER_Z_SEA;
+                }
+                // If we are moving down, stop vertical velocity
+                if (velocityZ < 0) {
+                    velocityZ = 0;
+                }
+                // Float up if below
+                if (z < MIN_HOVER_Z_SEA) {
+                    velocityZ = Math.max(velocityZ, 0.5); // Buoyancy/Anti-crash
+                }
+            }
+        }
+
+        // GENERIC Constraints
+        if (this instanceof com.spiga.core.VehiculeSurface) {
+            safeTargetZ = 0; // Boat stays at 0
+        }
+        if (this instanceof com.spiga.core.VehiculeSousMarin) {
+            if (safeTargetZ > 0)
+                safeTargetZ = -1; // Sub stays submerged
+        }
+
+        double dx = tx - x;
+        double dy = ty - y;
+        double dz = safeTargetZ - z; // Use safe target
         double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
         if (distance < 1.0) {
-            x = targetX;
-            y = targetY;
-            z = targetZ;
-            velocityX = 0;
-            velocityY = 0;
-            velocityZ = 0; // Fix missing reset
+            // Target reached
+            if (navigationMode == NavigationMode.AVOIDING) {
+                // Done avoiding early? Stay here until timer expiry or maintain?
+                // For now, just drift/hold.
+                velocityX = 0;
+                velocityY = 0;
+                velocityZ = 0;
+            } else if (finalTargetX != null) {
+                // Waypoint Reached -> Proceed to Final Target
+                System.out.println("🚩 " + id + ": Waypoint contournement atteint. Cap sur final.");
 
-            if (state == AssetState.RETURNING_TO_BASE) {
-                state = AssetState.RECHARGING;
-                recharger();
-            } else if (state == AssetState.EXECUTING_MISSION && currentMission != null) {
-                currentMission.complete();
-                state = AssetState.IDLE;
+                // Save and Clear Pending (Critical Order)
+                double nextX = finalTargetX;
+                double nextY = finalTargetY;
+                double nextZ = finalTargetZ;
+
+                this.finalTargetX = null;
+                this.finalTargetY = null;
+                this.finalTargetZ = null;
+
+                // Set Target (Re-validates path via DroneLogistique logic)
+                this.setTarget(nextX, nextY, nextZ);
             } else {
-                state = AssetState.IDLE;
+                // Truly Reached
+                x = tx;
+                y = ty;
+                z = safeTargetZ;
+                velocityX = 0;
+                velocityY = 0;
+                velocityZ = 0;
+
+                if (state == AssetState.RETURNING_TO_BASE) {
+                    state = AssetState.RECHARGING;
+                    recharger();
+                } else if (state == AssetState.EXECUTING_MISSION && currentMission != null) {
+                    currentMission.complete(); // Mission logic handles validation
+                    state = AssetState.IDLE;
+                } else {
+                    state = AssetState.IDLE;
+                }
             }
         } else {
             double dirX = dx / distance;
@@ -129,15 +299,17 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
 
             // Apply Weather Drag
             double effectiveSpeed = vitesseMax;
-            if (weather != null) {
-                effectiveSpeed *= getSpeedEfficiency(weather);
-            }
+            effectiveSpeed *= weatherSpeedModifier; // Use cached modifier
 
             effectiveSpeed *= speedModifier; // Apply Speed Modifier
 
+            if (navigationMode == NavigationMode.AVOIDING) {
+                effectiveSpeed *= 2.0; // Boost speed for avoidance
+            }
+
             velocityX = dirX * effectiveSpeed;
             velocityY = dirY * effectiveSpeed;
-            velocityZ = dirZ * effectiveSpeed; // Corrected assignment
+            velocityZ = dirZ * effectiveSpeed;
 
             x += velocityX * dt;
             y += velocityY * dt;
@@ -155,11 +327,10 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
             double speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY + velocityZ * velocityZ);
             double speedFactor = 1.0 + (speed / vitesseMax);
 
-            // Weather Factor Integration
             // Weather Factor Integration (Delegated to subclasses)
             double weatherFactor = 1.0;
             if (weather != null) {
-                weatherFactor = getWeatherImpact(weather);
+                weatherFactor = getBatteryMultiplier(weather);
             }
 
             consumption *= speedFactor * weatherFactor;
@@ -207,12 +378,65 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     }
 
     public void assignMission(Mission mission) {
-        this.currentMission = mission;
-        this.targetX = mission.getTargetX();
-        this.targetY = mission.getTargetY();
-        this.targetZ = mission.getTargetZ();
-        this.state = AssetState.EXECUTING_MISSION;
-        this.etat = EtatOperationnel.EN_MISSION;
+        if (this.currentMission == null || this.currentMission.isTerminated()) {
+            // Immediate start
+            this.currentMission = mission;
+            this.targetX = mission.getTargetX();
+            this.targetY = mission.getTargetY();
+            this.targetZ = mission.getTargetZ();
+            this.state = AssetState.EXECUTING_MISSION;
+            this.etat = EtatOperationnel.EN_MISSION;
+            System.out.println("Actif " + id + ": Assigned immediate mission " + mission.getTitre());
+        } else {
+            // Queue it
+            missionQueue.add(mission);
+            System.out.println("Actif " + id + ": Queued mission " + mission.getTitre() + " (Queue size: "
+                    + missionQueue.size() + ")");
+        }
+    }
+
+    public void checkMissionQueue() {
+        if ((currentMission == null || currentMission.isTerminated()) && !missionQueue.isEmpty()) {
+            Mission next = missionQueue.poll();
+            if (next != null) {
+                assignMission(next);
+                // Also auto-start if planned?
+                if (next.getStatut() == Mission.StatutMission.PLANIFIEE) {
+                    next.start(System.currentTimeMillis() / 1000);
+                }
+            }
+        }
+    }
+
+    public void promoteMission(Mission manualChoice) {
+        if (manualChoice == currentMission)
+            return;
+
+        // Check if exists in queue
+        if (missionQueue.contains(manualChoice)) {
+            missionQueue.remove(manualChoice);
+
+            // Push active to queue if not finished
+            if (currentMission != null && !currentMission.isTerminated()) {
+                if (currentMission.getStatut() == Mission.StatutMission.EN_COURS) {
+                    currentMission.pause();
+                }
+                missionQueue.add(currentMission);
+            }
+
+            // Set new active (bypass assignMission queue check)
+            this.currentMission = manualChoice;
+            this.targetX = manualChoice.getTargetX();
+            this.targetY = manualChoice.getTargetY();
+            this.targetZ = manualChoice.getTargetZ();
+            this.state = AssetState.EXECUTING_MISSION;
+            this.etat = EtatOperationnel.EN_MISSION; // Ensure state reflects mission
+            System.out.println("Actif " + id + ": Promoted mission " + manualChoice.getTitre());
+        }
+    }
+
+    public Queue<Mission> getMissionQueue() {
+        return missionQueue;
     }
 
     public void setTarget(double x, double y, double z) {
@@ -232,21 +456,27 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
      * Calculates impact of weather on consumption.
      * 1.0 = No impact. >1.0 = Increased consumption.
      */
-    protected double getWeatherImpact(com.spiga.environment.Weather w) {
-        return 1.0; // Default implementation
+    /**
+     * Calculates speed multiplier based on weather.
+     * 1.0 = Max Speed. <1.0 = Reduced Speed.
+     */
+    protected double getSpeedMultiplier(com.spiga.environment.Weather w) {
+        return 1.0; // Default
     }
 
     /**
-     * Calculates speed efficiency based on weather.
-     * 1.0 = 100% speed. <1.0 = Reduced speed.
+     * Calculates battery consumption multiplier based on weather.
+     * 1.0 = Normal drain. >1.0 = Increased drain.
      */
+    protected double getBatteryMultiplier(com.spiga.environment.Weather w) {
+        return 1.0; // Default
+    }
+
+    // Legacy method - can delegate to getSpeedMultiplier if preferred,
+    // or keep separate. For now, we use the NEW methods in
+    // moveTowards/updateBattery.
     protected double getSpeedEfficiency(com.spiga.environment.Weather w) {
-        // Default behavior: Simple wind drag
-        // 1% speed loss per 10 km/h of wind
-        double dragFactor = 1.0 - (w.getWindSpeed() / 1000.0);
-        if (dragFactor < 0.1)
-            dragFactor = 0.1;
-        return dragFactor;
+        return getSpeedMultiplier(w);
     }
 
     @Override
@@ -263,7 +493,8 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     @Override
     public void recharger() {
         autonomieActuelle = autonomieMax;
-        if (state == AssetState.STOPPED || state == AssetState.RECHARGING) {
+        if (state == AssetState.STOPPED || state == AssetState.RECHARGING || state == AssetState.LOW_BATTERY
+                || state == AssetState.RETURNING_TO_BASE) {
             state = AssetState.IDLE;
         }
         if (etat == EtatOperationnel.EN_PANNE) {
@@ -415,5 +646,10 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
 
     public String getCollisionWarning() {
         return collisionWarning;
+    }
+
+    // New getters
+    public double getVitesse() {
+        return vitesseMax * speedModifier * weatherSpeedModifier; // Approximation of current speed capability
     }
 }
