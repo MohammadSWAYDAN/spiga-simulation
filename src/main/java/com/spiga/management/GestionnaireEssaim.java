@@ -65,7 +65,7 @@ public class GestionnaireEssaim {
      * Démarre une mission avec un essaim d'actifs
      */
     public void demarrerMission(Mission mission, List<ActifMobile> essaim) {
-        System.out.println("🚀 Démarrage mission: " + mission.getTitre());
+        System.out.println("Démarrage mission: " + mission.getTitre());
         mission.assign();
         for (ActifMobile actif : essaim) {
             actif.assignMission(mission);

@@ -49,8 +49,6 @@ public abstract class ActifAerien extends ActifMobile {
         double efficiency = super.getSpeedEfficiency(w);
 
         // Rain Impact Logic:
-        // Users requested: "when i add rain, i want also the speed of drone to be
-        // affected, it should be less"
         // Model: reduces speed by up to 50% at max rain (100)
         if (w.getRainIntensity() > 0) {
             double rainPenalty = (w.getRainIntensity() / 100.0) * 0.5; // Max 0.5
