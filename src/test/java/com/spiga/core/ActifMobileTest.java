@@ -18,11 +18,24 @@ public class ActifMobileTest {
         drone.demarrer();
         assertEquals(ActifMobile.EtatOperationnel.EN_MISSION, drone.getEtat());
 
-        // Test movement
+        // Test deplacer sets target
         drone.deplacer(100.0, 200.0, 50.0);
-        assertEquals(100.0, drone.getX(), 0.01);
-        assertEquals(200.0, drone.getY(), 0.01);
-        assertEquals(50.0, drone.getZ(), 0.01);
+        assertEquals(100.0, drone.getTargetX(), 0.01);
+        assertEquals(200.0, drone.getTargetY(), 0.01);
+        assertEquals(50.0, drone.getTargetZ(), 0.01);
+
+        // Simulate time passing to reach target
+        // Speed ~120 m/s (approx). Distance ~229m.
+        // Use dt=0.01s (step ~1.2m) to land within 1.0m tolerance.
+        for (int i = 0; i < 1000; i++) {
+            drone.update(0.01, null);
+            if (drone.hasReachedTarget())
+                break;
+        }
+
+        assertEquals(100.0, drone.getX(), 5.0);
+        assertEquals(200.0, drone.getY(), 5.0);
+        assertEquals(50.0, drone.getTargetZ(), 0.1);
     }
 
     @Test

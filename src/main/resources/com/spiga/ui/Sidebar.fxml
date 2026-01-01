@@ -2,36 +2,82 @@
 
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
 
 <VBox xmlns="http://javafx.com/javafx"
-    xmlns:fx="http://javafx.com/fxml" fx:controller="com.spiga.ui.SidebarController" spacing="10" style="-fx-padding: 10; -fx-background-color: #f0f0f0;" prefWidth="250" minWidth="250">
+    xmlns:fx="http://javafx.com/fxml" fx:controller="com.spiga.ui.SidebarController" spacing="0" prefWidth="260" minWidth="260" style="-fx-background-color: white;">
 
-    <Label text="Fleet Assets" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
-    <ListView fx:id="listAssets" VBox.vgrow="ALWAYS"/>
+    <!-- SECTION 1: Fleet Assets -->
+    <Label text="Fleet Assets" styleClass="header-label">
+        <padding>
+            <Insets top="10" left="10" bottom="5"/>
+        </padding>
+    </Label>
+
+    <ListView fx:id="listAssets" VBox.vgrow="ALWAYS" prefHeight="250" styleClass="list-view"/>
 
     <Separator />
 
-    <Label text="Asset Details" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
-    <GridPane hgap="5" vgap="5">
-        <Label text="ID:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-        <Label fx:id="lblId" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+    <!-- SECTION 2: Asset Details -->
+    <Label text="Asset Details" styleClass="header-label">
+        <padding>
+            <Insets top="10" left="10" bottom="5"/>
+        </padding>
+    </Label>
 
-        <Label text="Type:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-        <Label fx:id="lblType" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+    <GridPane hgap="10" vgap="5">
+        <padding>
+            <Insets left="10" right="10" bottom="10"/>
+        </padding>
 
-        <Label text="State:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-        <Label fx:id="lblState" text="-" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+        <Label text="ID:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="label"/>
+        <Label fx:id="lblId" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="label" style="-fx-opacity: 0.7;"/>
 
-        <Label text="Battery:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-        <ProgressBar fx:id="progressBattery" progress="0.0" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+        <Label text="Type:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="label"/>
+        <Label fx:id="lblType" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="label" style="-fx-opacity: 0.7;"/>
 
-        <Label text="Speed:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
-        <Label fx:id="lblSpeed" text="-" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+        <Label text="State:" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="label"/>
+        <Label fx:id="lblState" text="-" GridPane.rowIndex="2" GridPane.columnIndex="1" styleClass="label" style="-fx-opacity: 0.7;"/>
+
+        <Label text="Battery:" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="label"/>
+        <HBox spacing="15" alignment="CENTER_LEFT" GridPane.rowIndex="3" GridPane.columnIndex="1">
+            <ProgressBar fx:id="progressBattery" progress="0.0" prefWidth="80" style="-fx-accent: #22C55E;"/>
+            <Label fx:id="lblBatteryPct" text="0%" style="-fx-font-size: 10px;"/>
+        </HBox>
+
+        <Label text="Speed:" GridPane.rowIndex="4" GridPane.columnIndex="0" styleClass="label"/>
+        <Label fx:id="lblSpeed" text="-" GridPane.rowIndex="4" GridPane.columnIndex="1" styleClass="label" style="-fx-opacity: 0.7;"/>
+
+        <Label text="Mission:" GridPane.rowIndex="5" GridPane.columnIndex="0" styleClass="label"/>
+        <VBox GridPane.rowIndex="5" GridPane.columnIndex="1" spacing="2">
+            <ComboBox fx:id="cmbMissions" maxWidth="Infinity" style="-fx-font-size: 10px;"/>
+            <Label fx:id="lblMissionStatusBadge" text="-" style="-fx-font-size: 9px; -fx-padding: 2 5; -fx-background-color: #ddd; -fx-background-radius: 3;"/>
+        </VBox>
     </GridPane>
-    
+
+    <VBox spacing="5" style="-fx-padding: 0 10 10 10;">
+        <Button fx:id="btnRecharge" text="⚡ Recharger Batterie" disable="true" visible="true" maxWidth="Infinity" styleClass="button-green" style="-fx-background-radius: 4;"/>
+
+        <HBox spacing="5" alignment="CENTER">
+            <Button fx:id="btnStartMission" text="▶ Lancer" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #3B82F6; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            <Button fx:id="btnStopMission" text="⏹ Éteindre" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #EF4444; -fx-text-fill: white; -fx-font-weight: bold;"/>
+        </HBox>
+    </VBox>
+
     <Separator />
-    
-    <Label text="Alerts &amp; Logs" style="-fx-font-weight: bold; -fx-font-size: 14px; text-fill: red;"/>
-    <ListView fx:id="listAlerts" VBox.vgrow="ALWAYS" style="-fx-control-inner-background: #fff0f0;"/>
+
+    <!-- SECTION 3: Alerts & Logs -->
+    <Label text="Alerts &amp; Logs" styleClass="header-label">
+        <padding>
+            <Insets top="10" left="10" bottom="5"/>
+        </padding>
+    </Label>
+    <ListView fx:id="listAlerts" VBox.vgrow="ALWAYS" prefHeight="200" styleClass="list-view"/>
+
+    <!-- Bottom Selected Label (Status Bar equivalent) -->
+    <Label text="Sélectionné: -" style="-fx-padding: 5; -fx-text-fill: gray; -fx-font-size: 10px;"/>
+
+    <Separator />
+    <Button text="⚠️ TEST COLLISION (DEMO)" maxWidth="Infinity" onAction="#handleTestCollision" style="-fx-background-color: #F59E0B; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;"/>
 
 </VBox>
