@@ -259,6 +259,7 @@ public class SidebarController {
             selectedAsset.recharger(); // Resets autonomie & state
             updateDetails(selectedAsset); // Refresh UI
         }
+<<<<<<< HEAD
     }
 
     @FXML
@@ -266,6 +267,8 @@ public class SidebarController {
         if (mainController != null) {
             mainController.handleDemoCollision();
         }
+=======
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     }
 
     public void refresh() {
@@ -293,6 +296,7 @@ public class SidebarController {
 
         isUpdatingSelection = true;
         try {
+<<<<<<< HEAD
             // Robust selection handling
             List<String> allIds = listAssets.getItems();
 
@@ -327,6 +331,13 @@ public class SidebarController {
                     }
                 } else {
                     listAssets.getSelectionModel().clearSelection();
+=======
+            listAssets.getSelectionModel().clearSelection();
+
+            if (assets != null && !assets.isEmpty()) {
+                for (ActifMobile a : assets) {
+                    listAssets.getSelectionModel().select(a.getId());
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                 }
 
                 if (assets.size() == 1) {
@@ -334,12 +345,21 @@ public class SidebarController {
                     updateDetails(this.selectedAsset);
                 } else {
                     this.selectedAsset = null;
+<<<<<<< HEAD
                     clearDetails(assets.size());
                 }
             }
         } catch (Exception e) {
             // Prevent UI Thread crash
             System.err.println("Safely caught UI Selection exception: " + e.getMessage());
+=======
+                    clearDetails(assets.size()); // Overload or just clear
+                }
+            } else {
+                this.selectedAsset = null;
+                clearDetails();
+            }
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         } finally {
             isUpdatingSelection = false;
         }

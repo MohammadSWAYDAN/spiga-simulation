@@ -54,6 +54,14 @@ public class GestionnaireEssaim {
     }
 
     /**
+     * Supprime un actif par son ID.
+     */
+    public void supprimerActif(String id) {
+        flotte.removeIf(a -> a.getId().equals(id));
+        System.out.println("✗ Actif supprimé: " + id);
+    }
+
+    /**
      * Retourne la flotte complète.
      */
     public List<ActifMobile> getFlotte() {
@@ -78,7 +86,11 @@ public class GestionnaireEssaim {
      * Démarre une mission avec un essaim d'actifs
      */
     public void demarrerMission(Mission mission, List<ActifMobile> essaim) {
+<<<<<<< HEAD
         logger.info("🚀 Démarrage mission: " + mission.getTitre());
+=======
+        System.out.println("🚀 Démarrage mission: " + mission.getTitre());
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         // mission.assign(); // Deprecated simple assign
         mission.assignActifs(essaim);
 

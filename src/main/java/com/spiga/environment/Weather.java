@@ -18,6 +18,7 @@ public class Weather {
     private double windDirection; // degrees (keep as is)
 
     public Weather(double windSpeed, double windDirection, double rainIntensity) {
+<<<<<<< HEAD
         this(windSpeed, windDirection, rainIntensity, 0.0);
     }
 
@@ -26,6 +27,12 @@ public class Weather {
         setWindSpeed(windSpeed); // Convert to intensity
         setRainIntensity(rainIntensity); // Convert/Clamp
         setWaveIntensity(waveIntensity);
+=======
+        this.windDirection = windDirection;
+        setWindSpeed(windSpeed); // Convert to intensity
+        setRainIntensity(rainIntensity); // Convert/Clamp
+        this.waveIntensity = 0.0;
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     }
 
     // --- Normalized Getters/Setters [0.0 - 1.0] ---

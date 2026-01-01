@@ -50,9 +50,13 @@ public class DroneLogistique extends ActifAerien {
 
             if (distSq < radiusSq) {
                 System.out.println("⛔ " + id + ": Rejet commande. Cible dans Zone Interdite " + zone.getId());
+<<<<<<< HEAD
                 // Set warning instead of throwing exception - let caller handle UI
                 setCollisionWarning("ZONE_VIOLATION: Cible dans zone interdite!");
                 return; // Reject the command silently
+=======
+                throw new RuntimeException("ZONE_VIOLATION"); // Trigger UI Popup
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
             }
 
             // B. Check Path Intersection (Contournement)
@@ -68,7 +72,11 @@ public class DroneLogistique extends ActifAerien {
 
                 // --- ROBUST TANGENT STRATEGY ---
                 // "Déterminer un point tangent/offset sur le bord"
+<<<<<<< HEAD
 
+=======
+                
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                 if (distToCenter <= safetyRadius + 1.0) {
                     // Case A: Creating Tangent from "ON/INSIDE" Safety Margin
                     // Fallback to Slide/Orbit (Perpendicular to Radius) to get out/around
@@ -78,6 +86,7 @@ public class DroneLogistique extends ActifAerien {
                     double angT = Math.atan2(ty - zone.getY(), tx - zone.getX());
                     // Direction
                     double diff = angT - angC;
+<<<<<<< HEAD
                     while (diff <= -Math.PI)
                         diff += 2 * Math.PI;
                     while (diff > Math.PI)
@@ -96,10 +105,27 @@ public class DroneLogistique extends ActifAerien {
                     // Math: Angle of tangent line from P to Circle(C, r) is asin(r/d) offset from
                     // PC.
 
+=======
+                    while (diff <= -Math.PI) diff += 2*Math.PI;
+                    while (diff > Math.PI) diff -= 2*Math.PI;
+                    
+                    double step = 0.5 * Math.signum(diff); // 30 deg step
+                    if (Math.abs(diff) < 0.5) step = diff;
+                    
+                    double angNext = angC + step;
+                    wayX = zone.getX() + Math.cos(angNext) * safetyRadius;
+                    wayY = zone.getY() + Math.sin(angNext) * safetyRadius;
+                    
+                } else {
+                    // Case B: Creating Tangent from DISTANCE (Straight Line Waypoint)
+                    // Math: Angle of tangent line from P to Circle(C, r) is asin(r/d) offset from PC.
+                    
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                     double D = distToCenter;
                     double R = safetyRadius;
                     // Angle from Drone P to Center C
                     double angPC = Math.atan2(zone.getY() - y, zone.getX() - x);
+<<<<<<< HEAD
 
                     // Offset angle alpha
                     double alpha = Math.asin(R / D);
@@ -122,6 +148,30 @@ public class DroneLogistique extends ActifAerien {
                     double d1sq = Math.pow(w1x - tx, 2) + Math.pow(w1y - ty, 2);
                     double d2sq = Math.pow(w2x - tx, 2) + Math.pow(w2y - ty, 2);
 
+=======
+                    
+                    // Offset angle alpha
+                    double alpha = Math.asin(R / D);
+                    
+                    // Two Tangent Directions: +alpha and -alpha relative to PC
+                    double t1_ang = angPC + alpha;
+                    double t2_ang = angPC - alpha;
+                    
+                    // Distance to Reach Tangent Point
+                    double L = Math.sqrt(D*D - R*R);
+                    
+                    // Two Candidate Waypoints
+                    double w1x = x + Math.cos(t1_ang) * L;
+                    double w1y = y + Math.sin(t1_ang) * L;
+                    
+                    double w2x = x + Math.cos(t2_ang) * L;
+                    double w2y = y + Math.sin(t2_ang) * L;
+                    
+                    // Choose the one closer to Final Target (Euclidean SQ)
+                    double d1sq = Math.pow(w1x - tx, 2) + Math.pow(w1y - ty, 2);
+                    double d2sq = Math.pow(w2x - tx, 2) + Math.pow(w2y - ty, 2);
+                    
+>>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                     if (d1sq < d2sq) {
                         wayX = w1x;
                         wayY = w1y;
