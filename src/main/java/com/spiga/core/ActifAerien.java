@@ -30,38 +30,20 @@ public abstract class ActifAerien extends ActifMobile {
 
     // Réutilisation : Cette méthode sera utilisée par TOUS les drones.
     @Override
-    protected double getWeatherImpact(com.spiga.environment.Weather w) {
-        double impact = 1.0;
-        // High Wind Sensitivity
-        if (w.getWindSpeed() > 15) {
-            impact += (w.getWindSpeed() - 15) * 0.015;
-        }
-        // Rain Sensitivity (Consumption)
-        if (w.getRainIntensity() > 20) {
-            impact += 0.15;
-        }
-        return impact;
+    protected double getSpeedMultiplier(com.spiga.environment.Weather w) {
+        // speed = vmax * clamp(1 - 0.5*rain - 0.2*wind, 0.4, 1)
+        double rain = w.getRainIntensity();
+        double wind = w.getWindIntensity();
+        double factor = 1.0 - (0.5 * rain) - (0.2 * wind);
+        return Math.max(0.4, Math.min(1.0, factor));
     }
 
     @Override
-    protected double getSpeedEfficiency(com.spiga.environment.Weather w) {
-        // Base Wind Drag
-        double efficiency = super.getSpeedEfficiency(w);
-
-        // Rain Impact Logic:
-        // Users requested: "when i add rain, i want also the speed of drone to be
-        // affected, it should be less"
-        // Model: reduces speed by up to 50% at max rain (100)
-        if (w.getRainIntensity() > 0) {
-            double rainPenalty = (w.getRainIntensity() / 100.0) * 0.5; // Max 0.5
-            efficiency -= rainPenalty;
-        }
-
-        // Safety floor
-        if (efficiency < 0.1)
-            efficiency = 0.1;
-
-        return efficiency;
+    protected double getBatteryMultiplier(com.spiga.environment.Weather w) {
+        // batteryMult = 1 + 0.6*rain + 0.3*wind
+        double rain = w.getRainIntensity();
+        double wind = w.getWindIntensity();
+        return 1.0 + (0.6 * rain) + (0.3 * wind);
     }
 
     @Override

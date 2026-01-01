@@ -1,7 +1,17 @@
 package com.spiga.ui;
 
-import com.spiga.core.*;
-import com.spiga.management.*;
+import com.spiga.core.ActifMobile;
+import com.spiga.core.ActifAerien;
+import com.spiga.core.DroneReconnaissance;
+import com.spiga.core.DroneLogistique;
+import com.spiga.core.VehiculeSurface;
+import com.spiga.core.VehiculeSousMarin;
+
+import com.spiga.management.GestionnaireEssaim;
+import com.spiga.management.Mission;
+import com.spiga.management.MissionLogistique;
+import com.spiga.management.MissionSurveillanceMaritime;
+
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
@@ -35,6 +45,8 @@ public class MissionController {
     @FXML
     private Label lblMissionStatus;
     @FXML
+    private TextField txtDuration; // New Duration Field
+    @FXML
     private Label lblTargetCoords;
     @FXML
     private Button btnSetTarget;
@@ -59,24 +71,90 @@ public class MissionController {
     public void initialize() {
         if (listMissions != null) {
             listMissions.setCellFactory(param -> new ListCell<Mission>() {
+                private final javafx.scene.layout.VBox root = new javafx.scene.layout.VBox();
+                private final Label lblName = new Label();
+                private final Label lblDetails = new Label();
+
+                {
+                    root.setSpacing(2); // Tight stacking
+                    root.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                    root.setPadding(new Insets(5));
+
+                    lblName.setStyle("-fx-font-weight: bold; -fx-text-fill: black;");
+                    lblDetails.setStyle("-fx-text-fill: #666; -fx-font-size: 10px;");
+
+                    root.getChildren().addAll(lblName, lblDetails);
+                }
+
                 @Override
                 protected void updateItem(Mission item, boolean empty) {
                     super.updateItem(item, empty);
                     if (empty || item == null) {
+                        setGraphic(null);
                         setText(null);
                     } else {
-                        setText(item.getTitre() + " [" + item.getStatut() + "]");
+                        // Title
+                        lblName.setText(item.getTitre());
+
+                        // Details: Drone Name(s) | Target
+                        String droneNames = "Aucun";
+                        if (item.getAssignedAssets() != null && !item.getAssignedAssets().isEmpty()) {
+                            droneNames = item.getAssignedAssets().stream()
+                                    .map(ActifMobile::getId)
+                                    .collect(java.util.stream.Collectors.joining(", "));
+                        }
+
+                        String targetStr = String.format("(%.0f, %.0f, %.0f)",
+                                item.getTargetX(), item.getTargetY(), item.getTargetZ());
+
+                        lblDetails.setText("Drone: " + droneNames + " | Cible: " + targetStr);
+
+                        setGraphic(root);
+                        setText(null);
                     }
                 }
-            });
+            }); // Close anonymous class and method call
+        } // Close if (listMissions != null)
 
-            listMissions.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-                if (newVal != null) {
-                    lblMissionStatus.setText("Sélectionné: " + newVal.getTitre());
-                }
-            });
-        }
+        // Listen for selection
+        listMissions.getSelectionModel().selectedItemProperty().addListener(
+                (obs, oldVal, newVal) -> {
+                    if (newVal != null) {
+                        lblMissionStatus.setText("Sélectionné: " + newVal.getTitre());
+                        // Target marker removed as requested
+                    } else {
+                        lblMissionStatus.setText("Sélectionné: -");
+                        // Target marker removed as requested
+                    }
+                });
         updateTargetLabel();
+
+        // Context Menu for Restart/Cancel
+        ContextMenu ctxMenu = new ContextMenu();
+        MenuItem restartItem = new MenuItem("Relancer Mission");
+        MenuItem cancelItem = new MenuItem("Annuler Mission");
+        MenuItem deleteItem = new MenuItem("Supprimer Mission"); // Optional
+
+        restartItem.setOnAction(e -> {
+            Mission m = listMissions.getSelectionModel().getSelectedItem();
+            if (m != null) {
+                m.restart(System.currentTimeMillis() / 1000);
+                listMissions.refresh();
+                if (mainController != null)
+                    mainController.refreshSidebar();
+            }
+        });
+
+        cancelItem.setOnAction(e -> {
+            Mission m = listMissions.getSelectionModel().getSelectedItem();
+            if (m != null) {
+                m.cancel();
+                listMissions.refresh();
+            }
+        });
+
+        ctxMenu.getItems().addAll(restartItem, cancelItem);
+        listMissions.setContextMenu(ctxMenu);
     }
 
     public void onAssetSelected(ActifMobile asset) {
@@ -212,7 +290,7 @@ public class MissionController {
         }
 
         if (selectedAssets.isEmpty()) {
-            lblMissionStatus.setText("❌ Sélectionnez un actif pour déduire le type");
+            lblMissionStatus.setText("❌ Sélectionnez au moins un actif");
             return;
         }
 
@@ -225,25 +303,44 @@ public class MissionController {
         } else if (firstAsset instanceof DroneLogistique) {
             mission = new MissionLogistique(title);
         } else if (firstAsset instanceof VehiculeSurface) {
-            mission = new MissionSurveillanceMaritime(title + " (Surface)"); // Reuse or new subclass
+            mission = new MissionSurveillanceMaritime(title + " (Surface)");
         } else if (firstAsset instanceof VehiculeSousMarin) {
-            mission = new MissionLogistique(title + " (Sous-marin)"); // Reuse or new subclass
+            mission = new MissionLogistique(title + " (Sous-marin)");
         } else {
             mission = new MissionLogistique(title); // Fallback
         }
 
         mission.setTarget(targetX, targetY, targetZ);
 
-        // Immediate Assignment
+        // Parse Duration
+        long duration = 180; // Default
+        if (txtDuration != null && !txtDuration.getText().isEmpty()) {
+            try {
+                duration = Long.parseLong(txtDuration.getText());
+            } catch (NumberFormatException e) {
+                // Ignore, use default
+            }
+        }
+        mission.setPlannedDurationSeconds(duration);
+
+        // Immediate Assignment & Start
         if (!validatePhysicalConstraints(selectedAssets, targetZ))
             return;
 
-        mainController.assignMissionToSelected(mission);
+        // Use Manager to start properly
+        gestionnaire.demarrerMission(mission, selectedAssets);
+
+        mainController.refreshSidebar(); // Update UI
         if (listMissions != null)
             listMissions.getItems().add(mission);
-        lblMissionStatus.setText("✅ Mission '" + mission.getClass().getSimpleName() + "' créée");
+
+        lblMissionStatus.setText(
+                "✅ Mission '" + mission.getClass().getSimpleName() + "' créée (" + selectedAssets.size() + " actifs)");
 
         txtMissionTitle.clear();
+        if (txtDuration != null)
+            txtDuration.setText("180");
+
         if (mainController != null)
             mainController.disableMissionTargetMode();
     }
@@ -303,6 +400,18 @@ public class MissionController {
             mainController.disableMissionTargetMode();
         lblMissionStatus.setText("✅ Cible définie");
     }
+
+    public void setTargetCoordinates(double x, double y, double z) {
+        if (lblTargetCoords != null) {
+            lblTargetCoords.setText(String.format("%.0f, %.0f", x, y));
+        }
+        // Store for mission creation using existing fields
+        this.targetX = x;
+        this.targetY = y;
+        this.targetZ = z;
+    }
+
+    // Removed redundant currentTargetX/Y/Z fields
 
     private void updateTargetLabel() {
         if (lblTargetCoords != null) {

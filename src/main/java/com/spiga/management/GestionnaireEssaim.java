@@ -4,6 +4,7 @@ import com.spiga.core.ActifMobile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.logging.Logger;
 
 /**
  * Gestionnaire de Flotte (Logiciel de Gestion)
@@ -25,6 +26,7 @@ public class GestionnaireEssaim {
 
     // Encapsulation : Liste privée, non accessible directement de l'extérieur.
     private List<ActifMobile> flotte;
+    private static final Logger logger = Logger.getLogger(GestionnaireEssaim.class.getName());
 
     public GestionnaireEssaim() {
         // Initialisation : On crée une liste vide prête à recevoir des actifs.
@@ -40,7 +42,15 @@ public class GestionnaireEssaim {
      */
     public void ajouterActif(ActifMobile actif) {
         flotte.add(actif);
-        System.out.println("✓ Actif ajouté: " + actif.getId());
+        logger.info("✓ Actif ajouté: " + actif.getId());
+    }
+
+    /**
+     * Supprime un actif par son ID.
+     */
+    public void supprimerActif(String id) {
+        flotte.removeIf(a -> a.getId().equals(id));
+        logger.info("✗ Actif supprimé: " + id);
     }
 
     /**
@@ -55,6 +65,9 @@ public class GestionnaireEssaim {
      * Utilisation de <b>Streams</b> pour le filtrage (Programmation fonctionnelle).
      */
     public List<ActifMobile> getActifsDisponibles() {
+        if (flotte == null) {
+            return new ArrayList<>();
+        }
         return flotte.stream()
                 .filter(a -> a.getEtat() == ActifMobile.EtatOperationnel.AU_SOL) // Condition 1
                 .filter(a -> a.getAutonomieActuelle() > a.getAutonomieMax() * 0.2) // Condition 2
@@ -65,12 +78,15 @@ public class GestionnaireEssaim {
      * Démarre une mission avec un essaim d'actifs
      */
     public void demarrerMission(Mission mission, List<ActifMobile> essaim) {
-        System.out.println("🚀 Démarrage mission: " + mission.getTitre());
-        mission.assign();
+        logger.info("🚀 Démarrage mission: " + mission.getTitre());
+        // mission.assign(); // Deprecated simple assign
+        mission.assignActifs(essaim);
+
         for (ActifMobile actif : essaim) {
             actif.assignMission(mission);
         }
-        mission.start();
+        // Start mission clock
+        mission.start(System.currentTimeMillis() / 1000);
     }
 
     /**
