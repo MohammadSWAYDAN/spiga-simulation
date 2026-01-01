@@ -12,11 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-<<<<<<< HEAD
 import java.util.logging.Logger;
 import java.util.logging.Level;
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
 /**
  * Moteur de Simulation (Le Cerveau)
@@ -25,11 +22,7 @@ import java.util.logging.Level;
 public class SimulationService extends AnimationTimer {
     private static final double TARGET_FPS = 60.0;
     private static final double FRAME_TIME = 1.0 / TARGET_FPS;
-<<<<<<< HEAD
     private static final Logger logger = Logger.getLogger(SimulationService.class.getName());
-=======
-    private static final double PUSH_FORCE = 2.0;
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
     // --- COMPOSITION : Mes composants ---
     private GestionnaireEssaim gestionnaire;
@@ -47,10 +40,6 @@ public class SimulationService extends AnimationTimer {
 
     // SWARM AVOIDANCE STATE
     private Map<String, Long> lastAlertTime = new HashMap<>(); // Key: "ID1-ID2", Value: TimeMs
-<<<<<<< HEAD
-=======
-    private static final double THRESH_ALERT = 25.0; // Trigger Avoidance
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
     /**
      * Constructeur : Initialisation du service.
@@ -163,12 +152,6 @@ public class SimulationService extends AnimationTimer {
 
         // 5. MISSION LOGIC
         checkMissions(fleet);
-<<<<<<< HEAD
-=======
-        checkObstacles(fleet);
-        checkRestrictedZones(fleet);
-        checkTargetConflicts(fleet); // NEW: Swarm Deconfliction
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
         // Handle Mission Dispatching
         communication.handleMissions();
@@ -260,13 +243,8 @@ public class SimulationService extends AnimationTimer {
 
     private void checkCollisions(List<ActifMobile> fleet) {
         long now = System.currentTimeMillis();
-<<<<<<< HEAD
         double minSeparation = SimConfig.SEPARATION_DISTANCE; // Distance to push away
         double alertDist = SimConfig.COLLISION_THRESHOLD;
-=======
-        double minSeparation = 50.0; // Distance to push away (each), total 100m
-        double alertDist = THRESH_ALERT; // 25.0
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         long cooldown = 2000; // 2s
 
         for (int i = 0; i < fleet.size(); i++) {
@@ -319,23 +297,14 @@ public class SimulationService extends AnimationTimer {
                         double t2y = a2.getY() - ny * minSeparation;
                         double t2z = a2.getZ();
 
-<<<<<<< HEAD
                         a1.engageAvoidance(t1x, t1y, t1z, SimConfig.AVOIDANCE_DURATION);
                         a2.engageAvoidance(t2x, t2y, t2z, SimConfig.AVOIDANCE_DURATION);
-=======
-                        a1.engageAvoidance(t1x, t1y, t1z, 5.0); // 5.0s duration for clear separation
-                        a2.engageAvoidance(t2x, t2y, t2z, 5.0);
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
                         // Added visible UI alert
                         a1.setCollisionWarning("Trop Proche! (Avoidance Active)");
                         a2.setCollisionWarning("Trop Proche! (Avoidance Active)");
 
-<<<<<<< HEAD
                         logger.warning("ALERT: Proximity " + a1.getId() + " <-> " + a2.getId());
-=======
-                        System.out.println("ALERT: Proximity " + a1.getId() + " <-> " + a2.getId());
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                     }
                 }
             }
@@ -391,7 +360,6 @@ public class SimulationService extends AnimationTimer {
 
                 // 3. Violation (Inside)
                 if (proximity <= 0) {
-<<<<<<< HEAD
                     isInfluenced = true;
                     // --- HARD WALL PHYSICS FOR LOGISTICS ---
                     if (asset instanceof DroneLogistique) {
@@ -415,44 +383,6 @@ public class SimulationService extends AnimationTimer {
                         asset.setCollisionWarning("VIOLATION ZONE (MISSION ÉCHOUÉE)");
                         asset.setSpeedModifier(0.0);
                         asset.setState(ActifMobile.AssetState.STOPPED);
-=======
-
-                    // --- HARD WALL PHYSICS FOR LOGISTICS ---
-                    if (asset instanceof DroneLogistique) {
-                        // "La zone est un obstacle" -> SOLID WALL.
-                        // Force position to be EXACTLY on the edge (plus margin).
-                        if (dist < 0.1) {
-                            dx = 1;
-                            dy = 0;
-                            dist = 1;
-                        } // Prevent 0 div
-
-                        double wallRadius = zone.getRadius() + 2.0; // 2m Margin
-
-                        asset.setX(zone.getX() + (dx / dist) * wallRadius);
-                        asset.setY(zone.getY() + (dy / dist) * wallRadius);
-
-                        // Stop momentum?
-                        // asset.setTarget(asset.getX(), asset.getY(), asset.getZ()); // Reset target??
-                        // No, pathfinding handles that.
-
-                        asset.setCollisionWarning("MUR ZONE (BLOQUÉ)");
-
-                    } else {
-                        // Standard Push (Soft Wall)
-                        double push = PUSH_FORCE * 5.0; // Increased from 3.0
-                        if (dist < 0.1)
-                            dist = 0.1;
-
-                        asset.setX(asset.getX() + (dx / dist) * push);
-                        asset.setY(asset.getY() + (dy / dist) * push);
-
-                        asset.setCollisionWarning("VIOLATION ZONE (MISSION ÉCHOUÉE)");
-                        asset.setSpeedModifier(0.0);
-                        asset.setState(ActifMobile.AssetState.STOPPED);
-
-                        // Fail Mission
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                         if (asset.getCurrentMission() != null) {
                             asset.getCurrentMission().fail("Violation Zone Interdite");
                         }

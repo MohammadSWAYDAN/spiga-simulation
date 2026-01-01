@@ -30,10 +30,7 @@ public class AssetNode extends StackPane {
     private final Label label;
     private final DropShadow glowEffect;
     private final ScaleTransition hoverAnimation;
-<<<<<<< HEAD
     private final Circle avoidanceCircle; // New visual indicator
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
     public AssetNode(ActifMobile asset) {
         this.asset = asset;
@@ -64,7 +61,6 @@ public class AssetNode extends StackPane {
         labelBg.setFill(Color.rgb(0, 0, 0, 0.6));
         labelBg.setTranslateY(15);
 
-<<<<<<< HEAD
         // 3b. Create Avoidance Indicator (Initially hidden)
         this.avoidanceCircle = new Circle(25);
         this.avoidanceCircle.setFill(Color.TRANSPARENT);
@@ -73,23 +69,15 @@ public class AssetNode extends StackPane {
         this.avoidanceCircle.getStrokeDashArray().addAll(10d, 5d); // Dashed line
         this.avoidanceCircle.setVisible(false);
 
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         // 4. Assemble
         // StackPane centers everything: Zone (Back), Shape (Mid), Labels (Front)
         // We want detection zone ONLY if it makes sense (e.g. Drone) or visually cool
         // for all.
         // User said "restore zone around drone".
         if (asset instanceof ActifAerien || asset instanceof DroneLogistique) {
-<<<<<<< HEAD
             this.getChildren().addAll(zoneCircle, avoidanceCircle, mainShape, labelBg, label);
         } else {
             this.getChildren().addAll(avoidanceCircle, mainShape, labelBg, label);
-=======
-            this.getChildren().addAll(zoneCircle, mainShape, labelBg, label);
-        } else {
-            this.getChildren().addAll(mainShape, labelBg, label);
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         }
 
         // 4. Interactivity (Hover)
@@ -185,7 +173,6 @@ public class AssetNode extends StackPane {
             mainShape.setStroke(Color.WHITE);
         }
 
-<<<<<<< HEAD
         // Avoidance Visual Feedback
         if (asset.getNavigationMode() == ActifMobile.NavigationMode.AVOIDING ||
                 (asset.getCollisionWarning() != null && !asset.getCollisionWarning().isEmpty())) {
@@ -196,8 +183,6 @@ public class AssetNode extends StackPane {
             avoidanceCircle.setVisible(false);
         }
 
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         // Selection highlight handled by parent or effect?
         // We can expose a method setSelection(boolean)
     }

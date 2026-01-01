@@ -6,11 +6,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-<<<<<<< HEAD
 import java.util.logging.Logger;
 import java.util.logging.Level;
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
 /**
  * Classe Abstraite : ActifMobile
@@ -63,7 +60,6 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     protected NavigationMode navigationMode = NavigationMode.NORMAL;
     protected double tempTargetX, tempTargetY, tempTargetZ;
     protected long avoidanceEndTime = 0;
-<<<<<<< HEAD
     protected boolean isDiverted = false; // True only if avoiding via Waypoint (Collision)
 
     // Potential Field Vectors
@@ -71,8 +67,6 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     protected double avoidForceY = 0;
     protected double avoidForceZ = 0;
     protected double steeringBias = 0.0; // -1.0 (Right), 0.0 (None), 1.0 (Left)
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
     protected Queue<Mission> missionQueue = new LinkedList<>(); // Mission Queue
 
@@ -105,7 +99,6 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         this.tempTargetZ = z;
     }
 
-<<<<<<< HEAD
     public double getSteeringBias() {
         return steeringBias;
     }
@@ -114,8 +107,6 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         this.steeringBias = bias;
     }
 
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     // Temp target getters
     public double getTempTargetX() {
         return tempTargetX;
@@ -146,13 +137,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     // navMode removed, using navigationMode defined above
     // tempTarget fields removed, using those defined above
 
-<<<<<<< HEAD
     // Dynamic Validation Constants & State - use SimConfig
-=======
-    // Dynamic Validation Constants & State
-    protected static final double SEA_APPROACH_THRESHOLD = 20.0;
-    protected static final double MIN_HOVER_Z_SEA = 2.0;
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     protected long lastSeaAlertTime = 0;
     protected static final long SEA_ALERT_COOLDOWN = 5000; // 5 seconds
 
@@ -183,12 +168,8 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
 
     // Updated update signature to include Weather
     public void update(double dt, com.spiga.environment.Weather weather) {
-<<<<<<< HEAD
         // speedModifier = 1.0; // REMOVED: Managed by SimulationService to persist
         // across checks
-=======
-        speedModifier = 1.0; // Reset every frame
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
         if (weather != null) {
             weatherSpeedModifier = getSpeedMultiplier(weather);
@@ -201,10 +182,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
             long now = System.currentTimeMillis();
             if (now > avoidanceEndTime) {
                 navigationMode = NavigationMode.NORMAL;
-<<<<<<< HEAD
                 isDiverted = false; // Reset diversion
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                 setCollisionWarning(null); // Clear warning
             }
         }
@@ -212,18 +190,12 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         if (state == AssetState.MOVING_TO_TARGET || state == AssetState.EXECUTING_MISSION
                 || state == AssetState.RETURNING_TO_BASE || navigationMode == NavigationMode.AVOIDING) {
 
-<<<<<<< HEAD
             // TARGET SELECTION LOGIC
             // If Diverted (Collision), use tempTarget.
             // If just Avoiding (Obstacle Force), use REAL target (forces will steer us).
             double effectiveTargetX = (isDiverted) ? tempTargetX : targetX;
             double effectiveTargetY = (isDiverted) ? tempTargetY : targetY;
             double effectiveTargetZ = (isDiverted) ? tempTargetZ : targetZ;
-=======
-            double effectiveTargetX = (navigationMode == NavigationMode.AVOIDING) ? tempTargetX : targetX;
-            double effectiveTargetY = (navigationMode == NavigationMode.AVOIDING) ? tempTargetY : targetY;
-            double effectiveTargetZ = (navigationMode == NavigationMode.AVOIDING) ? tempTargetZ : targetZ;
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
             moveTowards(effectiveTargetX, effectiveTargetY, effectiveTargetZ, dt, weather); // Pass weather for drag
             updateBattery(dt, weather);
@@ -240,10 +212,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
 
     public void engageAvoidance(double tx, double ty, double tz, double durationSeconds) {
         this.navigationMode = NavigationMode.AVOIDING;
-<<<<<<< HEAD
         this.isDiverted = true; // Use tempTarget
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         this.state = AssetState.MOVING_TO_TARGET; // Force state to Active
         this.tempTargetX = tx;
         this.tempTargetY = ty;
@@ -263,46 +232,28 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         if (this instanceof com.spiga.core.DroneLogistique || this instanceof com.spiga.core.DroneReconnaissance) {
             // Check if approaching sea (when current Z is low AND we are asked to go lower
             // or stay low)
-<<<<<<< HEAD
             if (z < SimConfig.SEA_APPROACH_THRESHOLD && tz_desired < SimConfig.MIN_HOVER_ALTITUDE) {
-=======
-            if (z < SEA_APPROACH_THRESHOLD && tz_desired < MIN_HOVER_Z_SEA) {
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                 long now = System.currentTimeMillis();
                 if (now - lastSeaAlertTime > SEA_ALERT_COOLDOWN) {
                     setCollisionWarning("⚠️ APPROCHE MER! Maintien Altitude.");
                     lastSeaAlertTime = now;
                 }
                 // Clamp Target Z to Hover
-<<<<<<< HEAD
                 safeTargetZ = Math.max(tz_desired, SimConfig.MIN_HOVER_ALTITUDE);
-=======
-                safeTargetZ = Math.max(tz_desired, MIN_HOVER_Z_SEA);
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
             }
 
             // Hard Stop / Hover if too low
             // If we are already near water, force hover target
-<<<<<<< HEAD
             if (z <= SimConfig.MIN_HOVER_ALTITUDE + 1.0) {
                 if (safeTargetZ < SimConfig.MIN_HOVER_ALTITUDE) {
                     safeTargetZ = SimConfig.MIN_HOVER_ALTITUDE;
-=======
-            if (z <= MIN_HOVER_Z_SEA + 1.0) {
-                if (safeTargetZ < MIN_HOVER_Z_SEA) {
-                    safeTargetZ = MIN_HOVER_Z_SEA;
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                 }
                 // If we are moving down, stop vertical velocity
                 if (velocityZ < 0) {
                     velocityZ = 0;
                 }
                 // Float up if below
-<<<<<<< HEAD
                 if (z < SimConfig.MIN_HOVER_ALTITUDE) {
-=======
-                if (z < MIN_HOVER_Z_SEA) {
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                     velocityZ = Math.max(velocityZ, 0.5); // Buoyancy/Anti-crash
                 }
             }
@@ -332,11 +283,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
                 velocityZ = 0;
             } else if (finalTargetX != null) {
                 // Waypoint Reached -> Proceed to Final Target
-<<<<<<< HEAD
                 logger.info("🚩 " + id + ": Waypoint contournement atteint. Cap sur final.");
-=======
-                System.out.println("🚩 " + id + ": Waypoint contournement atteint. Cap sur final.");
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
                 // Save and Clear Pending (Critical Order)
                 double nextX = finalTargetX;
@@ -376,7 +323,6 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
             double dirY = dy / distance;
             double dirZ = dz / distance;
 
-<<<<<<< HEAD
             // 2. Repulsion Force (Avoidance) - Normalized and weighted
             // We blend the desire to go to target (1.0) with the desire to avoid (Weight)
 
@@ -416,18 +362,12 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
                     finalDirZ /= finalLen;
                 }
             }
-=======
-            // Apply Weather Drag
-            double effectiveSpeed = vitesseMax;
-            effectiveSpeed *= weatherSpeedModifier; // Use cached modifier
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
             // Apply Weather Drag
             double effectiveSpeed = vitesseMax;
             effectiveSpeed *= weatherSpeedModifier; // Use cached modifier
             effectiveSpeed *= speedModifier; // Apply Speed Modifier
 
-<<<<<<< HEAD
             // Calculate target velocity
             double targetVelX = finalDirX * effectiveSpeed;
             double targetVelY = finalDirY * effectiveSpeed;
@@ -447,15 +387,6 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
                 velocityY = 0;
             if (Double.isNaN(velocityZ) || Double.isInfinite(velocityZ))
                 velocityZ = 0;
-=======
-            if (navigationMode == NavigationMode.AVOIDING) {
-                effectiveSpeed *= 2.0; // Boost speed for avoidance
-            }
-
-            velocityX = dirX * effectiveSpeed;
-            velocityY = dirY * effectiveSpeed;
-            velocityZ = dirZ * effectiveSpeed;
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 
             x += velocityX * dt;
             y += velocityY * dt;
@@ -556,19 +487,11 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
             this.targetZ = mission.getTargetZ();
             this.state = AssetState.EXECUTING_MISSION;
             this.etat = EtatOperationnel.EN_MISSION;
-<<<<<<< HEAD
             logger.info("Actif " + id + ": Assigned immediate mission " + mission.getTitre());
         } else {
             // Queue it
             missionQueue.add(mission);
             logger.info("Actif " + id + ": Queued mission " + mission.getTitre() + " (Queue size: "
-=======
-            System.out.println("Actif " + id + ": Assigned immediate mission " + mission.getTitre());
-        } else {
-            // Queue it
-            missionQueue.add(mission);
-            System.out.println("Actif " + id + ": Queued mission " + mission.getTitre() + " (Queue size: "
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                     + missionQueue.size() + ")");
         }
     }
@@ -609,11 +532,7 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
             this.targetZ = manualChoice.getTargetZ();
             this.state = AssetState.EXECUTING_MISSION;
             this.etat = EtatOperationnel.EN_MISSION; // Ensure state reflects mission
-<<<<<<< HEAD
             logger.info("Actif " + id + ": Promoted mission " + manualChoice.getTitre());
-=======
-            System.out.println("Actif " + id + ": Promoted mission " + manualChoice.getTitre());
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         }
     }
 

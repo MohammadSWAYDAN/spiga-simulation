@@ -184,10 +184,7 @@ public class MapPane extends Pane {
         layersPane.getChildren().clear();
         drawGrid();
         drawZones(restrictedZones);
-<<<<<<< HEAD
         drawObstacles(obstacles);
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     }
 
     private void drawGrid() {
@@ -220,7 +217,6 @@ public class MapPane extends Pane {
         }
     }
 
-<<<<<<< HEAD
     private void drawObstacles(List<Obstacle> obstacles) {
         if (obstacles == null)
             return;
@@ -253,8 +249,6 @@ public class MapPane extends Pane {
         }
     }
 
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     private void handleAssetClick(ActifMobile asset, boolean multiSelect) {
         if (missionTargetMode && onMapClicked != null) {
             // If in mission target mode, maybe we want to target the asset location?

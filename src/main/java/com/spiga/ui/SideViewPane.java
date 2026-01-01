@@ -2,10 +2,7 @@ package com.spiga.ui;
 
 import com.spiga.core.ActifMobile;
 import com.spiga.core.SimConfig;
-<<<<<<< HEAD
 import com.spiga.environment.Obstacle;
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 import com.spiga.environment.RestrictedZone;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
@@ -39,10 +36,7 @@ public class SideViewPane extends BorderPane {
     private final Pane drawingPane = new Pane(); // Inner Pane for drawing layers
     private final Pane backgroundLayer = new Pane();
     private final Pane zonesLayer = new Pane();
-<<<<<<< HEAD
     private final Pane obstaclesLayer = new Pane(); // New Layer
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     private final Pane assetsLayer = new Pane();
 
     private final Label coordLabel = new Label("Séléction: Aucune");
@@ -52,10 +46,7 @@ public class SideViewPane extends BorderPane {
     private double maxZ = 200; // Altitude max
     private double worldWidth = SimConfig.WORLD_WIDTH; // 1000m
 
-<<<<<<< HEAD
     private List<Obstacle> cachedObstacles = null; // Cache for optimization
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     private Map<String, javafx.scene.Node> assetNodes = new HashMap<>();
 
     public SideViewPane() {
@@ -63,11 +54,7 @@ public class SideViewPane extends BorderPane {
 
         // Assemble Top/Center Layers
         // We use drawingPane to hold the layers so they scale together
-<<<<<<< HEAD
         drawingPane.getChildren().addAll(backgroundLayer, zonesLayer, obstaclesLayer, assetsLayer);
-=======
-        drawingPane.getChildren().addAll(backgroundLayer, zonesLayer, assetsLayer);
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         this.setCenter(drawingPane);
 
         // Bottom Bar
@@ -77,7 +64,6 @@ public class SideViewPane extends BorderPane {
         this.setBottom(coordLabel);
 
         // Listeners for Resize to redraw background
-<<<<<<< HEAD
         drawingPane.widthProperty().addListener(e -> {
             drawBackground();
             renderObstacles();
@@ -86,11 +72,6 @@ public class SideViewPane extends BorderPane {
             drawBackground();
             renderObstacles();
         });
-=======
-        // Important: Listen to drawingPane size, which adapts to BorderPane center
-        drawingPane.widthProperty().addListener(e -> drawBackground());
-        drawingPane.heightProperty().addListener(e -> drawBackground());
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     }
 
     private void drawBackground() {
@@ -157,12 +138,8 @@ public class SideViewPane extends BorderPane {
         backgroundLayer.getChildren().add(txtWater);
     }
 
-<<<<<<< HEAD
     public void update(List<ActifMobile> assets, List<RestrictedZone> zones, List<Obstacle> obstacles,
             ActifMobile selectedAsset) {
-=======
-    public void update(List<ActifMobile> assets, List<RestrictedZone> zones, ActifMobile selectedAsset) {
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         if (drawingPane.getWidth() <= 0 || drawingPane.getHeight() <= 0)
             return;
 
@@ -201,15 +178,12 @@ public class SideViewPane extends BorderPane {
             }
         }
 
-<<<<<<< HEAD
         // 1.5 Update Obstacles (Optimized)
         if (obstacles != cachedObstacles) {
             cachedObstacles = obstacles;
             renderObstacles();
         }
 
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         // 2. Update Assets
         List<String> currentIds = assets.stream().map(ActifMobile::getId).collect(Collectors.toList());
 
@@ -320,7 +294,6 @@ public class SideViewPane extends BorderPane {
         double pct = (maxZ - worldZ) / range;
         return pct * drawingPane.getHeight();
     }
-<<<<<<< HEAD
 
     private void renderObstacles() {
         if (drawingPane.getWidth() <= 0 || drawingPane.getHeight() <= 0)
@@ -369,6 +342,4 @@ public class SideViewPane extends BorderPane {
             }
         }
     }
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
 }

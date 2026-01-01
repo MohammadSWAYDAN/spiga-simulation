@@ -203,12 +203,8 @@ public class MainController {
             if (mapPane != null && !mapPane.getSelectedAssets().isEmpty()) {
                 selected = mapPane.getSelectedAssets().get(0);
             }
-<<<<<<< HEAD
             sideViewPane.update(assets, simulationService.getRestrictedZones(), simulationService.getObstacles(),
                     selected);
-=======
-            sideViewPane.update(assets, simulationService.getRestrictedZones(), selected);
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         }
 
         // Periodic Health Check (every ~60 frames or 1 sec)
@@ -425,7 +421,6 @@ public class MainController {
         double currentAngle = 0.0;
 
         for (ActifMobile asset : selected) {
-<<<<<<< HEAD
             // Check for active mission and PAUSE it
             if (asset.getCurrentMission() != null) {
                 com.spiga.management.Mission m = asset.getCurrentMission();
@@ -458,41 +453,6 @@ public class MainController {
             } else {
                 // Force state update to ensure movement registers
                 asset.setState(ActifMobile.AssetState.MOVING_TO_TARGET);
-=======
-            try {
-                // Check for active mission and PAUSE it
-                if (asset.getCurrentMission() != null) {
-                    com.spiga.management.Mission m = asset.getCurrentMission();
-
-                    if (m.getStatut() == com.spiga.management.Mission.StatutMission.EN_COURS) {
-                        m.pause();
-                        if (sidebarController != null)
-                            sidebarController.addAlert("Mission PAUSED for " + asset.getId());
-                    }
-                }
-
-                // Calculate Target Coordinates
-                double tx = x;
-                double ty = y;
-
-                if (distribute) {
-                    tx = x + radius * Math.cos(currentAngle);
-                    ty = y + radius * Math.sin(currentAngle);
-                    currentAngle += angleStep;
-                }
-
-                // Set Target (Manual override)
-                asset.setTarget(tx, ty, z);
-                // Force state update to ensure movement registers
-                asset.setState(ActifMobile.AssetState.MOVING_TO_TARGET);
-
-            } catch (RuntimeException e) {
-                if (e.getMessage() != null && e.getMessage().contains("ZONE_VIOLATION")) {
-                    violationDetected = true;
-                } else {
-                    throw e; // Rethrow other errors
-                }
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
             }
         }
 
@@ -617,11 +577,7 @@ public class MainController {
         for (ActifMobile asset : selected) {
             Mission m = asset.getCurrentMission();
             if (m == null) {
-<<<<<<< HEAD
                 logger.warning("⚠️ Asset " + asset.getId() + ": No mission assigned.");
-=======
-                System.out.println("⚠️ Asset " + asset.getId() + ": No mission assigned.");
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
                 continue;
             }
 
@@ -644,18 +600,13 @@ public class MainController {
         if (actionCount > 0) {
             lblStatus.setText("SM Start: " + actionCount + " missions lancées/re-lancées.");
             sidebarController.addAlert("SM Start: " + actionCount + " missions started/restarted.");
-<<<<<<< HEAD
             refreshSidebar(); // Assume this method exists or remove if not needed, but context implies we
                               // should refresh sidebar
-=======
-            refreshSidebar();
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
         } else {
             sidebarController.addAlert("Aucune mission éligible (Planifiée/Terminée) sur la sélection.");
         }
     }
 
-<<<<<<< HEAD
     // refreshSidebar() moved to bottom of class to avoid duplicates
 
     // --- DEMO COLLISION START ---
@@ -692,8 +643,6 @@ public class MainController {
         }
     }
 
-=======
->>>>>>> 2e1c7d997378ffc2a62a0fdc8796641db0ce29fa
     private void promptForCreationMethod(String title, String type) {
         Dialog<String> dialog = new Dialog<>();
         dialog.setTitle(title);
