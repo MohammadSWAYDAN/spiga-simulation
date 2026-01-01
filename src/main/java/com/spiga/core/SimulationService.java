@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.logging.Logger;
-import java.util.logging.Level;
 
 /**
  * Moteur de Simulation (Le Cerveau)
@@ -332,6 +331,7 @@ public class SimulationService extends AnimationTimer {
             return;
 
         for (ActifMobile asset : fleet) {
+            @SuppressWarnings("unused")
             boolean isInfluenced = false;
 
             for (RestrictedZone zone : restrictedZones) {

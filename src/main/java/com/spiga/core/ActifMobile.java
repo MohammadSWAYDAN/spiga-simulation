@@ -7,7 +7,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.logging.Logger;
-import java.util.logging.Level;
 
 /**
  * Classe Abstraite : ActifMobile

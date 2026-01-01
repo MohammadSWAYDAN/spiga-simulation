@@ -6,7 +6,6 @@ import com.spiga.core.SwarmValidator;
 import com.spiga.core.ActifMobile;
 import com.spiga.core.DroneReconnaissance;
 import com.spiga.core.DroneLogistique;
-import com.spiga.core.VehiculeSousMarin;
 import com.spiga.core.SousMarinExploration;
 import com.spiga.management.GestionnaireEssaim;
 import com.spiga.core.VehiculeSurface;
@@ -474,6 +473,7 @@ public class MainController {
 
     // Deprecated method removed
 
+    @SuppressWarnings("unused")
     private void handleSideViewZSelection(double targetZ) {
         List<ActifMobile> selected = mapPane.getSelectedAssets();
         if (selected == null || selected.isEmpty()) {

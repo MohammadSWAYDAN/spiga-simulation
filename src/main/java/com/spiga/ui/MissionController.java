@@ -133,8 +133,6 @@ public class MissionController {
         ContextMenu ctxMenu = new ContextMenu();
         MenuItem restartItem = new MenuItem("Relancer Mission");
         MenuItem cancelItem = new MenuItem("Annuler Mission");
-        MenuItem deleteItem = new MenuItem("Supprimer Mission"); // Optional
-
         restartItem.setOnAction(e -> {
             Mission m = listMissions.getSelectionModel().getSelectedItem();
             if (m != null) {
