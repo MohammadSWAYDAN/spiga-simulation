@@ -26,7 +26,7 @@ public class SidebarController {
     @FXML
     private ProgressBar progressBattery;
     @FXML
-    private Label lblBatteryPercent;
+    private Label lblBatteryPct;
     @FXML
     private Label lblPosition;
     @FXML
@@ -395,9 +395,9 @@ public class SidebarController {
                     progressBattery.setStyle("-fx-accent: red;");
             }
 
-            if (lblBatteryPercent != null) {
+            if (lblBatteryPct != null) {
                 double pct = asset.getBatteryPercent();
-                lblBatteryPercent.setText(String.format("%.0f%%", pct * 100));
+                lblBatteryPct.setText(String.format("%.0f%%", pct * 100));
             }
 
             if (lblPosition != null) {
@@ -500,7 +500,7 @@ public class SidebarController {
             }
 
             if (lblSpeed != null)
-                lblSpeed.setText(String.format("%.1f km/h", asset.getVitesse()));
+                lblSpeed.setText(String.format("%.1f km/h", asset.getCurrentSpeed()));
         });
     }
 
@@ -517,8 +517,8 @@ public class SidebarController {
             lblState.setText("State: -");
         if (progressBattery != null)
             progressBattery.setProgress(0);
-        if (lblBatteryPercent != null)
-            lblBatteryPercent.setText("0%");
+        if (lblBatteryPct != null)
+            lblBatteryPct.setText("0%");
         if (lblPosition != null)
             lblPosition.setText("Coords: -");
         if (cmbMissions != null) {

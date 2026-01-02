@@ -46,7 +46,7 @@ public class SwarmTest {
         // ASSERTIONS
         // 1. Check Avoidance triggered (Collision Warning set)
         assertNotNull(d1.getCollisionWarning(), "D1 should have a collision warning");
-        assertEquals("EVITEMENT TEMPORAIRE", d1.getCollisionWarning());
+        assertEquals("Trop Proche! (Avoidance Active)", d1.getCollisionWarning());
 
         // 2. Check Navigation Mode (Protected field access allowed in same package)
         assertEquals(ActifMobile.NavigationMode.AVOIDING, d1.getNavigationMode(), "D1 should be in AVOIDING mode");
