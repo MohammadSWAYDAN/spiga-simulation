@@ -39,7 +39,6 @@ public abstract class ActifAerien extends ActifMobile {
     }
 
     @Override
-<<<<<<< HEAD
     protected double getSpeedEfficiency(com.spiga.environment.Weather w) {
         // Base Wind Drag
         double efficiency = super.getSpeedEfficiency(w);
@@ -56,13 +55,13 @@ public abstract class ActifAerien extends ActifMobile {
             efficiency = 0.1;
 
         return efficiency;
-=======
+    }
     protected double getBatteryMultiplier(com.spiga.environment.Weather w) {
         // batteryMult = 1 + 0.6*rain + 0.3*wind
         double rain = w.getRainIntensity();
         double wind = w.getWindIntensity();
         return 1.0 + (0.6 * rain) + (0.3 * wind);
->>>>>>> a489cb15ab31f5d1c64430958ffd64651689e850
+
     }
 
     @Override
