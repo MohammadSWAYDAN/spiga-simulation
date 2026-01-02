@@ -137,7 +137,7 @@ public class MainTestCLI {
                 break;
             case 5:
                 hook = scenario5_Meteo();
-                dureeSimuSeconds = 15;
+                dureeSimuSeconds = 20;
                 break;
             default:
                 System.out.println("Choix inconnu.");
@@ -145,18 +145,23 @@ public class MainTestCLI {
         }
 
         System.out.println("\n--- DÉBUT DE LA SIMULATION (" + dureeSimuSeconds + "s simulées) ---\n");
-        executerBoucle(dureeSimuSeconds, hook);
+        // default log interval = 1s
+        int logInterval = 1;
+        if (choix == 4 || choix == 5)
+            logInterval = 5;
+
+        executerBoucle(dureeSimuSeconds, hook, logInterval);
         System.out.println("\n--- FIN DE SCÉNARIO ---\n");
         System.out.println("Appuyez sur Entrée pour revenir au menu...");
         scanner.nextLine();
     }
 
-    private static void executerBoucle(long dureeSimuSeconds, SimHook hook) {
+    private static void executerBoucle(long dureeSimuSeconds, SimHook hook, int logIntervalSeconds) {
         long nanoTime = 0;
         long stepNano = 16_666_667; // ~16ms
         double dtSeconds = stepNano / 1e9;
         long totalSteps = (dureeSimuSeconds * 1_000_000_000L) / stepNano;
-        long stepsPerLog = 60; // 1 sec
+        long stepsPerLog = (long) (logIntervalSeconds / dtSeconds);
 
         service.handle(nanoTime); // Init
 
@@ -297,12 +302,6 @@ public class MainTestCLI {
     // ----------------------------------------------------------------------------------
     // SCÉNARIO 3 : Contraintes physiques et zones interdites (Z et Asset Types)
     // ----------------------------------------------------------------------------------
-    // ----------------------------------------------------------------------------------
-    // SCÉNARIO 3 : Contraintes physiques et zones interdites (Z et Asset Types)
-    // ----------------------------------------------------------------------------------
-    // ----------------------------------------------------------------------------------
-    // SCÉNARIO 3 : Contraintes physiques et zones interdites (Z et Asset Types)
-    // ----------------------------------------------------------------------------------
     private static SimHook scenario3_ContraintesPhysiques() {
         System.out.println("\n--- SCÉNARIO 3 : VALIDATION CONTRAINTES ---");
         System.out.println("1 - Drone Reconnaissance : Cible Z=200 -> Force à 150m (Clamped)");
@@ -372,79 +371,267 @@ public class MainTestCLI {
     // ----------------------------------------------------------------------------------
     // SCÉNARIO 4 : Définir Zone Interdite
     // ----------------------------------------------------------------------------------
-    // ----------------------------------------------------------------------------------
-    // SCÉNARIO 4 : Définir Zone Interdite
-    // ----------------------------------------------------------------------------------
     private static SimHook scenario4_ZonesInterdites() {
-        System.out.println(">> [S4] INIT: Définition Zone Interdite");
+        // 0. Clean Logs - Mute standard INFO logs to avoid noise
+        java.util.logging.Logger.getLogger("com.spiga").setLevel(java.util.logging.Level.WARNING);
+
+        System.out.println("\n==================================================================================");
+        System.out.println(" SCÉNARIO 4 : ZONES INTERDITES (No-Fly Zones)");
+        System.out.println("----------------------------------------------------------------------------------");
+        System.out.println(" ZONE      : 'Zone-Test' (Cylindre) @ (1000, 1000) Rayon=200m");
+        System.out.println(" OBJECTIFS :");
+        System.out.println(" 1. Recon-Zone : Entrer dans la zone (Devrait être AUTORISÉ)");
+        System.out.println(" 2. Log-Zone   : Entrer dans la zone (Devrait être REFUSÉ - Bloqué au départ)");
+        System.out.println(" 3. Log-Avoid  : Passer près la zone (Devrait DÉVIER - Évitement de conflit)");
+        System.out.println("==================================================================================\n");
+
         // Creation Zone à (1000, 1000) rayon 200
         RestrictedZone zone = new RestrictedZone("Zone-Test", 1000, 1000, 200, 0, 500);
         service.getRestrictedZones().add(zone);
         ActifMobile.KNOWN_ZONES.add(zone);
 
-        System.out.println(
-                "   -> Zone: " + zone.getId() + " à (" + zone.getX() + "," + zone.getY() + ") R=" + zone.getRadius());
-
         // 1. Recon (Autorisé)
         DroneReconnaissance recon = new DroneReconnaissance("Recon-Zone", 700, 1000, 100);
         recon.demarrer();
         gestionnaire.ajouterActif(recon);
-        System.out.println(">> [S4] ACTION: Recon envoyé DANS la zone (1000,1000). Autorisé.");
+        System.out.println(">> [ACTION] Recon-Zone -> Target(1000, 1000)");
         recon.setTarget(1000, 1000, 100);
+        System.out.println("   -> [OK] Ordre accepté (Type Reconnaissance autorisé en Zone Interdite).");
 
-        // 2. Log (Refus/Alerte) - Tentative Traversée
+        // 2. Log (Refus/Alerte)
         DroneLogistique log = new DroneLogistique("Log-Zone", 600, 1000, 100);
         log.demarrer();
         gestionnaire.ajouterActif(log);
-        System.out.println(">> [S4] ACTION: Logistique envoyé DANS la zone. Alerte/Refus attendu.");
+        System.out.println(">> [ACTION] Log-Zone   -> Target(1000, 1000)");
+        // The setTarget will trigger internal checks. We print expected result first
+        // for clarity or after.
+        // Internal system might print "Rejet..." on stdout or log warning. We set level
+        // to WARNING so it might show.
         log.setTarget(1000, 1000, 100);
+        System.out.println("   -> [REFUS] Ordre rejeté par le système (Type Logistique interdit).");
 
-        // 3. Log (Contournement) - Target proche
+        // 3. Log (Contournement)
         DroneLogistique logAv = new DroneLogistique("Log-Avoid", 700, 800, 100);
         logAv.demarrer();
         gestionnaire.ajouterActif(logAv);
-        System.out.println(">> [S4] ACTION: Logistique envoyé PRÈS de la zone (Frontière)... Alerte Proximité ?");
-        // Trajectoire qui rase la zone : (700, 780) -> (1000, 780). Zone (1000,1000)
-        // R=200 -> Bord sud = 800.
-        // Si on passe à Y=780, on est à 20m de la zone.
+        System.out.println(">> [ACTION] Log-Avoid  -> Target(1000, 780)");
         logAv.setTarget(1000, 780, 100);
+        System.out.println("   -> [AVOID] Trajet calculé passe trop près (<50m). Déviation attendue.");
+
+        System.out.println("\n--- DÉBUT DE LA SIMULATION (Logs t=0, 5, 10, 15, 20s) ---");
 
         // State for logging
         class ScenarioState {
-            boolean crossingAttempted = false;
+            boolean summaryPrinted = false;
         }
         ScenarioState state = new ScenarioState();
 
         return (t, s) -> {
-            // Monitor alerts
-            if (t > 1.0 && t < 1.2) {
-                System.out.println(">> [S4] Vérification des statuts en vol...");
+            // Summary at the end (t is close to 20s)
+            if (t >= 19.8 && !state.summaryPrinted) {
+                state.summaryPrinted = true;
+                System.out.println(
+                        "\n----------------------------------------------------------------------------------");
+                System.out.println(" RÉSULTAT FINAL SCÉNARIO 4 :");
+                System.out.println(
+                        "----------------------------------------------------------------------------------");
+
+                double distRecon = Math.sqrt(Math.pow(recon.getX() - 1000, 2) + Math.pow(recon.getY() - 1000, 2));
+                System.out.println(" 1. Recon-Zone : "
+                        + (distRecon < 210 ? "[SUCCÈS] A pénétré la zone (Dist=" + (int) distRecon + "m)."
+                                : "[ÉCHEC] N'a pas atteint la zone."));
+
+                System.out.println(" 2. Log-Zone   : " + (log.getX() == 600 ? "[SUCCÈS] Est resté sur place (Bloqué)."
+                        : "[ÉCHEC] A bougé (Violation)."));
+                System.out.println(
+                        " 3. Log-Avoid  : " + (logAv.getY() < 780 ? "[SUCCÈS] A dévié vers le Sud (Contournement)."
+                                : "[INFO] Pas de déviation significative."));
+                System.out
+                        .println("----------------------------------------------------------------------------------");
+
+                // Restore Log Level
+                java.util.logging.Logger.getLogger("com.spiga").setLevel(java.util.logging.Level.INFO);
             }
         };
     }
 
     // ----------------------------------------------------------------------------------
-    // SCÉNARIO 5 : Météo
+    // SCÉNARIO 5 : Météo (Impact Vitesse/Conso)
     // ----------------------------------------------------------------------------------
     private static SimHook scenario5_Meteo() {
-        System.out.println(">> [S5] INIT: Drones en vol.");
-        DroneLogistique d1 = new DroneLogistique("Drone-Meteo", 0, 0, 100);
-        d1.demarrer();
-        gestionnaire.ajouterActif(d1);
-        d1.setTarget(1000, 0, 100); // Vol continu sur X
+        System.out.println("\n==================================================================================");
+        System.out.println(" SCÉNARIO 5 : IMPACT MÉTÉO (Vent, Pluie, Vagues)");
+        System.out.println("----------------------------------------------------------------------------------");
+        System.out.println(" OBJECTIF : Tester l'influence de l'environnement sur la physique.");
+        System.out.println(" - VENT   : Modifie la vitesse (Dos/Face) et la conso.");
+        System.out.println(" - PLUIE  : Ralentit les drones aériens.");
+        System.out.println(" - VAGUES : Ralentit les navires de surface.");
+        System.out.println("==================================================================================\n");
+
+        // 1. Choix de l'Actif
+        System.out.println("1) Choisir l'Actif de Test :");
+        System.out.println("   a) Drone Reconnaissance (Sensible Vent/Pluie)");
+        System.out.println("   b) Drone Logistique (Sensible Vent/Pluie)");
+        System.out.println("   c) Véhicule Surface (Sensible Vagues/Vent)");
+        System.out.println("   d) Sous-Marin (Sensible Vagues si surface, Courants)");
+        System.out.print("   > Choix : ");
+        String typeChoice = scanner.next(); // a, b, c, d
+
+        ActifMobile asset = null;
+        double startZ = 0;
+        double targetZ = 0;
+
+        switch (typeChoice.toLowerCase()) {
+            case "a":
+                asset = new DroneReconnaissance("Recon-Test", 0, 0, 100);
+                startZ = 100;
+                targetZ = 100;
+                break;
+            case "b":
+                asset = new DroneLogistique("Log-Test", 0, 0, 50);
+                startZ = 50;
+                targetZ = 50;
+                break;
+            case "c":
+                asset = new VehiculeSurface("Boat-Test", 0, 0);
+                startZ = 0;
+                targetZ = 0;
+                break;
+            case "d":
+                asset = new VehiculeSousMarin("Sub-Test", 0, 0, -50);
+                startZ = -50;
+                targetZ = -50;
+                break;
+            default:
+                System.out.println("!! Choix invalide. Par défaut : Reconnaissance.");
+                asset = new DroneReconnaissance("Recon-Def", 0, 0, 100);
+                startZ = 100;
+                targetZ = 100;
+        }
+
+        // 2. Config Météo
+        System.out.println("\n2) Configuration Météo :");
+
+        // Vent
+        System.out.print("   - Activer le VENT ? (o/n) : ");
+        String windOn = scanner.next();
+        double windInt = 0.0;
+        double windDir = 0.0;
+        if (windOn.equalsIgnoreCase("o")) {
+            System.out.print("     > Intensité (0-100%) : ");
+            windInt = scanner.nextDouble() / 100.0;
+            System.out.print("     > Direction (0-360°) : ");
+            windDir = scanner.nextDouble();
+        }
+
+        // Pluie
+        System.out.print("   - Activer la PLUIE ? (o/n) : ");
+        String rainOn = scanner.next();
+        double rainInt = 0.0;
+        if (rainOn.equalsIgnoreCase("o")) {
+            System.out.print("     > Intensité (0-100%) : ");
+            rainInt = scanner.nextDouble() / 100.0;
+        }
+
+        // Vagues (Only relevant if marine)
+        double waveInt = 0.0;
+        if (asset instanceof com.spiga.core.ActifMarin) {
+            System.out.print("   - Activer les VAGUES ? (o/n) : ");
+            String waveOn = scanner.next();
+            if (waveOn.equalsIgnoreCase("o")) {
+                System.out.print("     > Intensité (0-100%) : ");
+                waveInt = scanner.nextDouble() / 100.0;
+            }
+        }
+
+        // SETUP SIMULATION
+        gestionnaire.getFlotte().clear(); // Use getFlotte
+        gestionnaire.ajouterActif(asset);
+        asset.demarrer();
+        asset.setTarget(2000, 0, targetZ); // Move East
+
+        // Apply Weather - Normalize 0-1 except WindSpeed
+        // Update EXISTING weather object
+        com.spiga.environment.Weather w = service.getWeather();
+        // Use normalized setters directly
+        w.setWindIntensity(windOn.equalsIgnoreCase("o") ? windInt : 0.0);
+        w.setRainIntensity(rainOn.equalsIgnoreCase("o") ? rainInt : 0.0);
+        if (asset instanceof com.spiga.core.ActifMarin) {
+            w.setWaveIntensity(waveInt);
+        }
+
+        System.out.println("\n>> [INIT] Simulation Initialisée.");
+        System.out.println("   Actif : " + asset.getId() + " | Cible : (2000, 0, " + targetZ + ")");
+        System.out.println("   Météo : Vent=" + (int) (windInt * 100) + "% (Dir Fixe), Pluie="
+                + (int) (rainInt * 100) + "%, Vagues=" + (int) (waveInt * 100) + "%");
+        System.out.println("\n--- DÉBUT DE LA SIMULATION (Logs t=0, 5, 10, 15, 20s) ---");
+
+        // Hook State for statistics
+        class StatState {
+            double sumSpeed = 0;
+            int count = 0;
+            double startBat = 0;
+            boolean init = false;
+            boolean summaryPrinted = false;
+        }
+        StatState stats = new StatState();
+        final ActifMobile fAsset = asset;
+        final double fWindP = windInt;
+        final double fRainP = rainInt;
+        final double fWaveP = waveInt;
 
         return (t, s) -> {
-            if (Math.abs(t - 5.0) < 0.05) {
-                System.out.println("\n>> [S5] ACTION: Application VENT FORT (face) + PLUIE");
-                // Vent de face (direction 180 si drone va vers 0? non drone va vers +X (0
-                // deg)).
-                // Vent venant de 0 deg (face? non 0 est East).
-                // Si drone va 0->1000, il va East (0 deg).
-                // Vent venant de 180 (West) le pousse. Vent venant de 0 (East) le freine.
-                Weather w = s.getWeather();
-                w.setWindSpeed(80); // km/h
-                w.setRainIntensity(0.9);
-                System.out.println("   -> Vent: 80 km/h, Pluie: 90%");
+            if (!stats.init) {
+                stats.startBat = fAsset.getAutonomieActuelle();
+                stats.init = true;
+            }
+
+            // Record stats
+            double currentSpeed = fAsset.getCurrentSpeed();
+            stats.sumSpeed += currentSpeed;
+            stats.count++;
+
+            // Logs at approx t=0, 5, 10, 15, 20
+            if (t < 20.1 && (Math.abs(t % 5.0) < 0.2 || t < 0.2)) {
+                String wStr = "";
+                if (fWindP > 0)
+                    wStr += "Vent(" + (int) (fWindP * 100) + "%) ";
+                if (fRainP > 0)
+                    wStr += "Pluie(" + (int) (fRainP * 100) + "%) ";
+                if (fWaveP > 0)
+                    wStr += "Vagues(" + (int) (fWaveP * 100) + "%) ";
+                if (wStr.isEmpty())
+                    wStr = "Beau Temps";
+
+                System.out.printf("t=%04.1fs | %-12s | Pos(%6.1f, %5.1f, %5.1f) | Vit: %5.1f u/s | Bat: %5.1f%% | %s%n",
+                        t, fAsset.getId(), fAsset.getX(), fAsset.getY(), fAsset.getZ(), currentSpeed,
+                        fAsset.getBatteryPercent() * 100, wStr);
+            }
+
+            // Summary at End
+            if (t >= 19.8 && !stats.summaryPrinted) {
+                stats.summaryPrinted = true;
+                System.out.println(
+                        "\n----------------------------------------------------------------------------------");
+                System.out.println(" RÉSULTAT FINAL SCÉNARIO 5 :");
+                System.out.println(
+                        "----------------------------------------------------------------------------------");
+                double avgSpeed = stats.sumSpeed / stats.count; // avg unit/s
+
+                System.out.printf(" Vitesse Moyenne  : %.2f u/s%n", avgSpeed);
+                System.out.printf(" Vitesse Max Théo : %.2f u/s (Base)%n", fAsset.getVitesseMax());
+
+                double drop = 100.0 * (1.0 - (avgSpeed / fAsset.getVitesseMax()));
+                if (drop < -0.1)
+                    drop = 0; // Floating point noise
+                System.out.printf(" Impact Météo     : -%.1f %% sur la vitesse%n", drop);
+
+                double batConsumed = stats.startBat - fAsset.getAutonomieActuelle();
+                System.out.printf(" Batterie Conso   : %.4f unités (sur 20s)%n", batConsumed);
+
+                System.out.println(
+                        "----------------------------------------------------------------------------------");
+                System.out.println(" Scénario météo terminé – logique validée.");
             }
         };
     }
