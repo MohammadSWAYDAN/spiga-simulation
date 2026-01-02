@@ -671,6 +671,10 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         return autonomieActuelle;
     }
 
+    public void setAutonomieActuelle(double autonomie) {
+        this.autonomieActuelle = autonomie;
+    }
+
     public EtatOperationnel getEtat() {
         return etat;
     }

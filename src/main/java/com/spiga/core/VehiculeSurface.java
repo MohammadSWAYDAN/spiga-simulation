@@ -36,6 +36,7 @@ public class VehiculeSurface extends ActifMarin {
     public void setTarget(double x, double y, double z) {
         if (Math.abs(z) > 0.001) {
             System.out.println("⚠️ " + id + ": Rejet cible Z=" + z + ". Force à 0m (Surface).");
+            setCollisionWarning("INVALID Z (Surface Only)");
         }
         super.setTarget(x, y, 0.0);
     }

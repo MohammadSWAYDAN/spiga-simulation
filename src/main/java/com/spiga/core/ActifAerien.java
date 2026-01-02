@@ -56,12 +56,13 @@ public abstract class ActifAerien extends ActifMobile {
 
         return efficiency;
     }
+
+    @Override
     protected double getBatteryMultiplier(com.spiga.environment.Weather w) {
         // batteryMult = 1 + 0.6*rain + 0.3*wind
         double rain = w.getRainIntensity();
         double wind = w.getWindIntensity();
         return 1.0 + (0.6 * rain) + (0.3 * wind);
-
     }
 
     @Override
@@ -74,17 +75,26 @@ public abstract class ActifAerien extends ActifMobile {
     }
 
     @Override
+    public void setTarget(double x, double y, double z) {
+        double clampedZ = z;
+        if (clampedZ < 1) {
+            System.out.println("⚠️ " + id + ": Rejet cible Z=" + clampedZ + " (Sous l'eau/Sol). Force à 1m.");
+            clampedZ = 1;
+        }
+        if (clampedZ > 150) {
+            System.out.println("⚠️ " + id + ": Rejet cible Z=" + clampedZ + " (Trop haut). Force à 150m.");
+            clampedZ = 150;
+            // Visible Alert for Log Status
+            setCollisionWarning("PLAFOND ATTEINT (150m)");
+        }
+        super.setTarget(x, y, clampedZ);
+    }
+
+    @Override
     public void deplacer(double targetX, double targetY, double targetZ) {
         // Enforce Aerial Constraints [1, 150] - Pre-check
-        if (targetZ < 1) {
-            System.out.println("⚠️ " + id + ": Rejet cible Z=" + targetZ + " (Sous l'eau/Sol). Force à 1m.");
-            targetZ = 1;
-        }
-        if (targetZ > 150) {
-            System.out.println("⚠️ " + id + ": Rejet cible Z=" + targetZ + " (Trop haut). Force à 150m.");
-            targetZ = 150;
-        }
-        super.deplacer(targetX, targetY, targetZ);
+        // Delegate to setTarget
+        setTarget(targetX, targetY, targetZ);
     }
 
     public double getAltitudeMax() {
