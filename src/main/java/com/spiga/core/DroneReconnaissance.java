@@ -1,31 +1,28 @@
 package com.spiga.core;
 
 /**
- * Classe Concrete : Drone de Reconnaissance
- * 
- * CONCEPTS CLES :
- * 
- * 1. Heritage (extends ActifAerien) :
- * - C'est quoi ? Recuperer tout le code d'un parent.
- * - Pourquoi ici ? Un Drone EST UN actif aerien. Il recupere automatiquement :
- * altitude, position x/y/z, methodes de deplacement.
- * On ne reinvente pas la roue !
- * 
- * 2. Constructeur ("super") :
- * - C'est quoi ? Appeler le constructeur du parent.
- * - Pourquoi ici ? L'objet parent (ActifAerien) a besoin d'initialiser ses
- * variables (vitesse, autonomie).
- * Le drone passe ses valeurs specifiques (120 km/h, 4h).
- * 
- * 3. Specialisation :
- * - C'est quoi ? Ajouter ce qui manque au parent.
- * - Ici : On ajoute rayonSurveillance qui n'existe pas dans un actif generique.
+ * Classe concrète représentant un Drone de Reconnaissance rapide.
+ * <p>
+ * Ce drone léger est conçu pour l'observation rapide.
+ * Il est très rapide (120 km/h) mais possède une autonomie limitée (4h).
+ * Il dispose d'un capteur optique de surveillance (simulé par un rayon de
+ * surveillance).
+ * </p>
  */
 public class DroneReconnaissance extends ActifAerien {
 
-    // Attribut specifique a CE type de drone (Specialisation)
+    /** Rayon de surveillance en mètres. */
     private double rayonSurveillance;
 
+    /**
+     * Constructeur standard.
+     * Initialise le drone avec 120 km/h et 4h d'autonomie.
+     *
+     * @param id       Identifiant unique.
+     * @param x        Position X.
+     * @param y        Position Y.
+     * @param altitude Altitude Z.
+     */
     public DroneReconnaissance(String id, double x, double y, double altitude) {
         // APPEL AU PARENT :
         // On remplit le "contrat" de ActifAerien en lui donnant les infos de base
@@ -38,18 +35,27 @@ public class DroneReconnaissance extends ActifAerien {
     }
 
     /**
-     * POLYMORPHISME (@Override) :
-     * 
-     * Cette methode remplace celle du parent (ou implemente l'abstraite).
-     * 
-     * Quand on demande getConsommation() a ce drone, c'est CE code qui s'execute,
-     * pas celui d'un navire ou d'un autre drone.
+     * Retourne la consommation spécifique de ce drone.
+     * <p>
+     * Consommation fixe de 2.0 unités/heure.
+     * Avec une capacité de 4.0, cela donne bien 2h d'autonomie réelle à pleine
+     * charge,
+     * mais le constructeur déclare 4.0 d'autonomie max pour le calcul de jauge.
+     * (Vérifiez la cohérence autonomie/conso dans SimConfig si nécessaire).
+     * </p>
+     *
+     * @return 2.0
      */
     @Override
     public double getConsommation() {
-        return 2.0; // 2.0/hr (Cap 4.0) -> 2h Autonomy. At 10x speed -> 12 min real time.
+        return 2.0;
     }
 
+    /**
+     * Retourne le rayon de surveillance du capteur.
+     * 
+     * @return Rayon en mètres.
+     */
     public double getRayonSurveillance() {
         return rayonSurveillance;
     }

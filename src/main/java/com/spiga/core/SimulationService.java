@@ -15,8 +15,26 @@ import java.util.HashMap;
 import java.util.logging.Logger;
 
 /**
- * Moteur de Simulation (Le Cerveau)
- * ...
+ * Moteur de Simulation (Le Cerveau central).
+ * <p>
+ * Cette classe orchestre l'ensemble de la simulation en temps réel.
+ * Elle hérite de {@link AnimationTimer} (JavaFX) pour se synchroniser avec le
+ * taux de rafraîchissement de l'écran (60 FPS).
+ * </p>
+ * <p>
+ * <strong>Responsabilités Principales :</strong>
+ * <ul>
+ * <li>Gestion de la boucle temporelle (Time Step fixe).</li>
+ * <li>Mise à jour de la physique et de l'état de chaque
+ * {@link ActifMobile}.</li>
+ * <li>Gestion des interactions avec l'environnement (Obstacles, Météo, Zones
+ * Interdites).</li>
+ * <li>Déconfliction et anti-collision de l'essaim (Swarm Intelligence).</li>
+ * </ul>
+ * </p>
+ * 
+ * @see GestionnaireEssaim
+ * @see Communication
  */
 public class SimulationService extends AnimationTimer {
     private static final double TARGET_FPS = 60.0;
@@ -24,25 +42,44 @@ public class SimulationService extends AnimationTimer {
     private static final Logger logger = Logger.getLogger(SimulationService.class.getName());
 
     // --- COMPOSITION : Mes composants ---
+
+    /** Gestionnaire de la flotte d'actifs. */
     private GestionnaireEssaim gestionnaire;
+    /** Gestionnaire des communications et dispatch de missions. */
     private Communication communication;
 
     // Utilisation de Collections (List) pour gérer dynamiquement des groupes
     // d'objets
+
+    /** Liste des obstacles physiques (Iles, Montagnes, Récifs). */
     private List<Obstacle> obstacles;
+    /** Liste des zones d'exclusion aérienne/maritime. */
     private List<RestrictedZone> restrictedZones;
+    /** Objet représentant les conditions météorologiques globales. */
     private Weather weather;
+
+    /** Facteur d'accélération du temps (1.0 = Temps réel). */
     private double timeScale = 1.0;
 
     private long lastTime = 0;
     private double accumulator = 0;
 
     // SWARM AVOIDANCE STATE
-    private Map<String, Long> lastAlertTime = new HashMap<>(); // Key: "ID1-ID2", Value: TimeMs
+    /**
+     * Mémorise les temps de dernière alerte par paire d'actifs pour éviter le spam
+     * de logs.
+     * Key: "ID1-ID2", Value: Timestamp (ms)
+     */
+    private Map<String, Long> lastAlertTime = new HashMap<>();
 
     /**
      * Constructeur : Initialisation du service.
-     * Instanciation des listes et des objets dépendants avec `new`.
+     * <p>
+     * Instanciation des listes et configuration de l'environnement initial.
+     * Partage les zones connues avec les actifs statiques pour l'IA distribuée.
+     * </p>
+     * 
+     * @param gestionnaire Le gestionnaire d'essaim injecté.
      */
     public SimulationService(GestionnaireEssaim gestionnaire) {
         this.gestionnaire = gestionnaire;
@@ -63,15 +100,26 @@ public class SimulationService extends AnimationTimer {
         ActifMobile.KNOWN_ZONES.addAll(restrictedZones);
     }
 
+    /**
+     * Démarre la boucle de simulation.
+     */
     public void startSimulation() {
         lastTime = 0; // Reset time to avoid jump
         super.start();
     }
 
+    /**
+     * Arrête la boucle de simulation.
+     */
     public void stopSimulation() {
         super.stop();
     }
 
+    /**
+     * Initialise les obstacles statiques de la carte.
+     * Place des obstacles variés (Air, Surface, Sous-marin) pour tester les
+     * différents véhicules.
+     */
     private void initializeObstacles() {
         // --- 6 WELL-SEPARATED OBSTACLES ---
         // World is 2000x2000, obstacles spread across corners and center
@@ -89,6 +137,9 @@ public class SimulationService extends AnimationTimer {
         obstacles.add(new Obstacle(1600, 300, 50, 30)); // Floating Hazard NE
     }
 
+    /**
+     * Initialise les zones de restriction.
+     */
     private void initializeRestrictedZones() {
         // "Black Zone" - Military Base or similar
         // MOVED to Border (1800, 500)
@@ -101,6 +152,16 @@ public class SimulationService extends AnimationTimer {
         return restrictedZones;
     }
 
+    /**
+     * Boucle principale appelée à chaque frame par JavaFX.
+     * <p>
+     * Implémente un "Fixed Time Step" (pas de temps fixe) pour garantir une
+     * simulation stable
+     * quelle que soit la vitesse de l'ordinateur.
+     * </p>
+     * 
+     * @param now Timestamp courant en nanosecondes.
+     */
     @Override
     public void handle(long now) {
         if (lastTime == 0) {
@@ -120,6 +181,21 @@ public class SimulationService extends AnimationTimer {
         }
     }
 
+    /**
+     * Met à jour logique de la simulation d'un pas de temps.
+     * <p>
+     * Séquence d'exécution :
+     * <ol>
+     * <li>Détection environnementale (Obstacles, Zones, Conflits de cibles).</li>
+     * <li>Mise à jour physique des actifs (Mouvement, Energie).</li>
+     * <li>Détection de collisions "post-move" (Sécurité).</li>
+     * <li>Contraintes de monde (Limites de carte).</li>
+     * <li>Logique métier des Missions.</li>
+     * </ol>
+     * </p>
+     * 
+     * @param dt Delta temps en secondes.
+     */
     private void updateSimulation(double dt) {
         updateWeather(dt);
 
@@ -156,6 +232,16 @@ public class SimulationService extends AnimationTimer {
         communication.handleMissions();
     }
 
+    /**
+     * Détecte et résout les conflits de cibles au sein de l'essaim.
+     * <p>
+     * Si deux drones ont la même destination, ils risquent de se percuter à
+     * l'arrivée.
+     * Cette méthode décale préventivement leurs cibles finales (Offset).
+     * </p>
+     * 
+     * @param fleet Liste des actifs.
+     */
     private void checkTargetConflicts(List<ActifMobile> fleet) {
         long now = System.currentTimeMillis();
         double collisionDist = 2.0; // Targets considered "same" if within 2m
@@ -224,11 +310,18 @@ public class SimulationService extends AnimationTimer {
         }
     }
 
+    /**
+     * Placeholder pour une mise à jour dynamique de la météo (non utilisé
+     * actuellement).
+     */
     private void updateWeather(double dt) {
         // Weather is now controlled manually via UI sliders
         // No automatic random weather changes
     }
 
+    /**
+     * Met à jour chaque actif individuellement.
+     */
     private void updateAllAssets(List<ActifMobile> fleet, double dt) {
         if (weather.getWindSpeed() > 40) {
             // weatherFactor *= 0.9; // Logic moved to ActifMobile.update
@@ -240,6 +333,16 @@ public class SimulationService extends AnimationTimer {
         }
     }
 
+    /**
+     * Vérifie la proximité physique entre tous les actifs pour éviter les
+     * collisions.
+     * <p>
+     * Utilise un seuil de déclenchement (alertDist) pour activer des manœuvres
+     * d'évitement locales (Vector Field Avoidance).
+     * </p>
+     * 
+     * @param fleet Liste des actifs.
+     */
     private void checkCollisions(List<ActifMobile> fleet) {
         long now = System.currentTimeMillis();
         double minSeparation = SimConfig.SEPARATION_DISTANCE; // Distance to push away
@@ -310,6 +413,9 @@ public class SimulationService extends AnimationTimer {
         }
     }
 
+    /**
+     * Confine les actifs à l'intérieur de la carte (0,0 -> 2000,2000).
+     */
     private void checkBoundaries(List<ActifMobile> fleet) {
         double maxX = SimConfig.WORLD_WIDTH;
         double maxY = SimConfig.WORLD_HEIGHT;
@@ -326,6 +432,16 @@ public class SimulationService extends AnimationTimer {
         }
     }
 
+    /**
+     * Vérifie si les actifs pénètrent ou s'approchent des zones interdites.
+     * <p>
+     * Implémente une "force molle" (repousser doucement si on s'approche)
+     * et un "mur dur" (bloquer physiquement l'actif si tentative d'entrée, sauf
+     * Reconnaissance).
+     * </p>
+     * 
+     * @param fleet Liste des actifs.
+     */
     private void checkRestrictedZones(List<ActifMobile> fleet) {
         if (restrictedZones == null)
             return;
@@ -462,19 +578,21 @@ public class SimulationService extends AnimationTimer {
             // will NOT reset it.
             // (Because `now < endTime`).
             // So `checkObstacles` respects Zone's timer.
-            // So I don't need to duplicate the reset logic here?
-            // Wait. `checkObstacles` has the reset in `else`.
-            // `else` means "Not Influenced by Obstacles".
-            // It checks `if (endTime < now)`.
-            // If Zone set endTime to future, `checkObstacles` sees active timer and DOES
-            // NOT reset.
-            // PERFECT! The logic in `checkObstacles` handles the reset for BOTH!
+            // Perfect! The logic in `checkObstacles` handles the reset for BOTH!
 
             // So I just need to SET it here.
             // I do NOT need the reset block here.
         }
     }
 
+    /**
+     * Met à jour la progression des missions actives.
+     * <p>
+     * Seules les missions "EN_COURS" sont mises à jour (appel de {@code tick()}).
+     * </p>
+     * 
+     * @param fleet Liste des actifs.
+     */
     private void checkMissions(List<ActifMobile> fleet) {
         long currentSimTime = System.currentTimeMillis() / 1000; // Simple wall-clock time for now
 
@@ -495,6 +613,12 @@ public class SimulationService extends AnimationTimer {
         }
     }
 
+    /**
+     * Applique les forces de répulsion des obstacles naturels (Champs de
+     * potentiel).
+     * 
+     * @param fleet Liste des actifs.
+     */
     private void checkObstacles(List<ActifMobile> fleet) {
         // Constants for Potential Field - use SimConfig
         double DETECTION_RADIUS = SimConfig.OBSTACLE_DETECTION_RADIUS;

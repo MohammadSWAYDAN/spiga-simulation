@@ -1,14 +1,20 @@
 package com.spiga.management;
 
 /**
- * MissionSurveillanceMaritime - Mission de surveillance maritime
- * Conforme a SPIGA-SPEC.txt section 3.2
- * 
- * Concept : Polymorphisme (Missions)
- * Cette classe est une forme specifique de "Mission".
+ * Implémentation concrète d'une mission de surveillance maritime.
+ * <p>
+ * Spécialisée pour l'observation de zones. Utilisée par les
+ * {@link com.spiga.core.DroneReconnaissance}
+ * ou les {@link com.spiga.core.VehiculeSurface}.
+ * </p>
  */
 public class MissionSurveillanceMaritime extends Mission {
 
+    /**
+     * Crée une mission de surveillance.
+     * 
+     * @param titre Titre.
+     */
     public MissionSurveillanceMaritime(String titre) {
         super(titre, MissionType.SURVEILLANCE);
         this.objectives = "Surveiller la zone maritime désignée";

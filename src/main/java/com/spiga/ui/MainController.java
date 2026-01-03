@@ -24,35 +24,47 @@ import java.util.stream.Collectors;
 import java.util.logging.Logger;
 
 /**
- * Controleur Principal : Chef d'Orchestre de l'Interface
- * 
- * CONCEPTS CLES (JAVA FX & MVC) :
- * 
- * 1. MVC (Modele-Vue-Controleur) :
- * - C'est quoi ? Separer les donnees (Modele), l'affichage (Vue FXML) et la
- * logique (Controleur).
- * - Ici : Cette classe est le Controleur. Elle fait le lien entre la Vue
- * (boutons, sliders) et le Modele (SimulationService).
- * 
- * 2. Injection de Dependances (@FXML) :
- * - C'est quoi ? JavaFX "injecte" automatiquement les objets graphiques dans
- * nos variables.
- * - Pourquoi ? Pas besoin de faire slider = new Slider(). Si l'ID dans le FXML
- * correspond au nom la variable, c'est magique !
- * 
- * 3. Gestion d'Evenements :
- * - C'est quoi ? Reagir aux actions de l'utilisateur.
- * - Exemple : Quand on clique sur "Play", la methode liee reagit.
+ * Contrôleur Principal : Chef d'Orchestre de l'Interface (MVC).
+ * <p>
+ * Cette classe fait le lien entre la Vue définie en FXML (l'interface
+ * graphique) et le Modèle
+ * (la logique de simulation). Elle gère les interactions utilisateur, la mise à
+ * jour de l'affichage
+ * en temps réel, et la délégation des commandes vers le service de simulation.
+ * </p>
+ *
+ * <h3>CONCEPTS CLÉS (JAVA FX & MVC) :</h3>
+ * <ul>
+ * <li><b>MVC (Modèle-Vue-Contrôleur) :</b> Séparation stricte entre les données
+ * ({@link SimulationService}, {@link GestionnaireEssaim}),
+ * l'affichage (MainView.fxml, {@link MapPane}) et la logique de contrôle (cette
+ * classe).</li>
+ * <li><b>Injection de Dépendances (@FXML) :</b> JavaFX injecte automatiquement
+ * les composants graphiques définis
+ * dans le fichier FXML dans les variables annotées {@code @FXML}. Cela évite
+ * l'instanciation manuelle.</li>
+ * <li><b>Boucle d'Animation (AnimationTimer) :</b> Remplace la boucle
+ * `while(true)` classique pour mettre à jour
+ * l'interface graphique de manière fluide (60 FPS) sans bloquer le thread
+ * principal.</li>
+ * </ul>
+ *
+ * @author Equipe SPIGA
+ * @version 1.0
  */
 public class MainController {
 
     // --- VUE (Injection @FXML) ---
     // Ces champs correspondent aux fx:id dans MainView.fxml
 
+    /** Conteneur principal pour l'affichage de la carte (vue de dessus). */
     @FXML
-    private StackPane mapContainer; // Zone d'affichage carte
+    private StackPane mapContainer;
+
+    /** Conteneur pour l'affichage de la vue de profil (coupe latérale Z). */
     @FXML
-    private StackPane sideViewContainer; // Zone d'affichage profil
+    private StackPane sideViewContainer;
+
     @FXML
     private Label lblWindValue;
     @FXML
@@ -60,10 +72,11 @@ public class MainController {
     @FXML
     private Label lblWavesValue;
 
+    /** Label de statut général en bas de la fenêtre. */
     @FXML
     private Label lblStatus;
 
-    // Sliders pour contrôler le MODÈLE (Météo)
+    // Sliders pour contrôler le MODÈLE (Météo et Vitesse)
     @FXML
     private Slider sliderSpeed;
     @FXML
@@ -75,57 +88,80 @@ public class MainController {
 
     // --- SOUS-CONTRÔLEURS (Composition UI) ---
     // JavaFX injecte aussi les contrôleurs des fichiers inclus (<fx:include>)
+
+    /** Contrôleur du panneau latéral droit (détails et alertes). */
     @FXML
     private SidebarController sidebarController;
+
+    /** Contrôleur du panneau de gestion des missions. */
     @FXML
     private MissionController missionPanelController;
 
+    /** Le gestionnaire de la flotte d'actifs (Modèle). */
     private GestionnaireEssaim gestionnaire;
-    private SimulationService simulationService;
-    private MapPane mapPane; // Replaces MapCanvas
-    private SideViewPane sideViewPane; // Replaces SideViewCanvas
 
+    /** Le service principal de simulation (Moteur physique et temporel). */
+    private SimulationService simulationService;
+
+    /** Composant graphique personnalisé pour la carte. */
+    private MapPane mapPane;
+
+    /** Composant graphique personnalisé pour la vue latérale. */
+    private SideViewPane sideViewPane;
+
+    /** Timer pour la mise à jour de l'interface graphique à chaque frame. */
     private AnimationTimer uiUpdateTimer;
 
+    /** Type d'actif en attente de placement (curseur mode création). */
     private String pendingAssetType = null;
+
     private static final Logger logger = Logger.getLogger(MainController.class.getName());
 
-    // ID Counters
+    // Compteurs pour la génération d'IDs uniques
     private int countDroneRecon = 1;
     private int countDroneLog = 1;
     private int countBoat = 1;
     private int countSub = 1;
 
+    /**
+     * Méthode d'initialisation appelée automatiquement par JavaFX après l'injection
+     * des composants FXML.
+     * <p>
+     * Configure le modèle, initialise les vues personnalisées ({@link MapPane},
+     * {@link SideViewPane}),
+     * configure les écouteurs d'événements (sliders, clics carte), et lance la
+     * boucle de simulation.
+     * </p>
+     */
     public void initialize() {
         gestionnaire = new GestionnaireEssaim();
         simulationService = new SimulationService(gestionnaire);
 
-        // 1. Map Pane (Scene Graph)
+        // 1. Initialisation de la Carte (Map Pane)
         mapPane = new MapPane();
         mapContainer.getChildren().add(mapPane);
 
-        // 2. Side View Pane (Node-based)
+        // 2. Initialisation de la Vue Latérale (Side View Pane)
         sideViewPane = new SideViewPane();
         sideViewContainer.getChildren().add(sideViewPane);
-        // Bind size to container to ensure BorderPane fills space
+        // Liaison des dimensions pour le redimensionnement automatique
         sideViewPane.prefWidthProperty().bind(sideViewContainer.widthProperty());
         sideViewPane.prefHeightProperty().bind(sideViewContainer.heightProperty());
 
-        // Initialize MapPane Interactions
+        // Initialisation des interactions Carte (Clics, Sélection)
         mapPane.setOnSelectionChanged(this::handleSelectionChanged);
-        mapPane.setOnMapClicked(this::handleMapClicked); // Primary handler
-        // mapPane.setOnMapRightClicked(this::handleMapRightClicked);
+        mapPane.setOnMapClicked(this::handleMapClicked);
 
-        // Center View Logic
+        // Logique de centrage initial
         javafx.application.Platform.runLater(this::centerOnWorld);
 
-        // Initialize Sliders
+        // Initialisation des Sliders de contrôle
         initSlider(sliderSpeed, SimConfig.DEFAULT_TIME_SCALE, val -> {
             simulationService.setTimeScale(val);
             updateStatusLabel();
         });
 
-        // Wind/Rain/Waves with Labels
+        // Configuration des Sliders Météo (Vent, Pluie, Vagues)
         initSlider(sliderWind, 0, val -> {
             if (simulationService.getWeather() != null)
                 simulationService.getWeather().setWindIntensity(val / 100.0);
@@ -145,41 +181,58 @@ public class MainController {
                 lblWavesValue.setText(String.format("%.0f%%", val));
         });
 
+        // Démarrage du moteur de simulation (Thread séparé implicite ou Timer interne)
         simulationService.startSimulation();
 
+        // Configuration des sous-contrôleurs
         if (sidebarController != null) {
             sidebarController.setGestionnaire(gestionnaire);
             sidebarController.setMainController(this);
-            // Setup Delete Callback
-            // Setup Delete Callback (removed)
-            // sidebarController.setOnDeleteAction(this::removeAsset);
         }
         if (missionPanelController != null) {
             missionPanelController.setGestionnaire(gestionnaire);
             missionPanelController.setMainController(this);
         }
 
+        // Lancement de la boucle de rafraîchissement UI
         startUIUpdateLoop();
         lblStatus.setText("Simulation prête - Ajoutez des actifs pour commencer");
     }
 
+    /**
+     * Initialise un slider avec une valeur de départ et une action à exécuter lors
+     * du changement.
+     *
+     * @param slider       Le composant Slider à configurer.
+     * @param initialValue La valeur initiale.
+     * @param action       L'action (Consumer) à exécuter avec la nouvelle valeur.
+     */
     private void initSlider(Slider slider, double initialValue, Consumer<Double> action) {
         if (slider != null) {
-            // Default min/max are usually 0-100, adjust if needed
+            // Ajustement spécifique pour le slider de vitesse (Min 1.0, Max 30.0)
             if (slider == sliderSpeed) {
                 slider.setMin(1.0);
                 slider.setMax(30.0);
             }
             slider.setValue(initialValue);
-            action.accept(initialValue); // Apply initial value
+            action.accept(initialValue); // Appliquer la valeur initiale
             slider.valueProperty().addListener((obs, oldVal, newVal) -> action.accept(newVal.doubleValue()));
         }
     }
 
+    /**
+     * Centre la vue sur le monde (placeholder pour future implémentation de
+     * centrage).
+     * Actuellement géré par l'auto-scale du {@link MapPane}.
+     */
     private void centerOnWorld() {
         // Auto-centering handled by MapPane auto-scale
     }
 
+    /**
+     * Démarre la boucle d'incrustation (Game Loop) pour l'interface graphique.
+     * Utilise {@link AnimationTimer} pour viser 60 FPS.
+     */
     private void startUIUpdateLoop() {
         uiUpdateTimer = new AnimationTimer() {
             @Override
@@ -192,11 +245,20 @@ public class MainController {
 
     private long frameCount = 0;
 
+    /**
+     * Met à jour tous les éléments de l'interface graphique à chaque frame.
+     * <p>
+     * Synchronise la vue avec l'état actuel du modèle (positions, statuts, météo).
+     * Effectue également des vérifications périodiques (santé, proximité) moins
+     * fréquemment.
+     * </p>
+     */
     private void updateUI() {
         List<ActifMobile> assets = gestionnaire.getFlotte();
-        // Use MapPane to update (Scene Graph)
+        // Mise à jour de la Carte
         mapPane.update(assets, simulationService.getObstacles(), simulationService.getRestrictedZones());
 
+        // Mise à jour de la Vue Latérale
         if (sideViewPane != null) {
             ActifMobile selected = null;
             if (mapPane != null && !mapPane.getSelectedAssets().isEmpty()) {
@@ -206,12 +268,13 @@ public class MainController {
                     selected);
         }
 
-        // Periodic Health Check (every ~60 frames or 1 sec)
+        // Vérifications périodiques (toutes les ~60 frames, soit environ 1 seconde)
         frameCount++;
         if (frameCount % 60 == 0) {
             checkProximityAndAlert(assets);
         }
 
+        // Rafraîchissement des panneaux latéraux
         if (sidebarController != null)
             sidebarController.refresh();
         if (missionPanelController != null)
@@ -220,40 +283,44 @@ public class MainController {
         updateStatusLabel();
     }
 
+    /**
+     * Vérifie les règles de proximité et génère des alertes UI si nécessaire.
+     *
+     * @param assets La liste des actifs à vérifier.
+     */
     private void checkProximityAndAlert(List<ActifMobile> assets) {
         if (sidebarController == null) {
             return;
         }
 
         for (ActifMobile a1 : assets) {
-            // 1. Proximity Check (SwarmValidator)
+            // 1. Vérification de Proximité (SwarmValidator)
             List<ActifMobile> others = assets.stream().filter(a -> a != a1).collect(Collectors.toList());
             if (!SwarmValidator.isPlacementValid(a1.getX(), a1.getY(), a1.getZ(), others)) {
                 String msg = a1.getId() + " Trop Proche! (Avoidance Active)";
                 sidebarController.addAlert(msg);
             }
 
-            // 1b. PHYSICS/EARLY WARNING CHECK
+            // 1b. Vérification Physique / Collisions
             if (a1.getCollisionWarning() != null) {
                 String msg = a1.getId() + ": " + a1.getCollisionWarning();
                 sidebarController.addAlert(msg);
-                a1.setCollisionWarning(null);
+                a1.setCollisionWarning(null); // Reset après affichage
             }
 
-            // 2. Sea Level Alert & Block (Splashdown Protection)
+            // 2. Alertes Niveau de la Mer (Protection Splashdown pour Aériens)
             if (a1 instanceof com.spiga.core.ActifAerien) {
-                // Splashdown Check
-                if (a1.getZ() <= 1.0) { // Tolerance < 1m
+                if (a1.getZ() <= 1.0) { // Tolérance < 1m
                     if (a1.getState() != ActifMobile.AssetState.STOPPED) {
                         a1.setState(ActifMobile.AssetState.STOPPED);
-                        a1.setZ(2.0); // Hover
+                        a1.setZ(2.0); // Hover de sécurité
                         a1.setTarget(a1.getX(), a1.getY(), 2.0);
 
                         String msg = "ALERTE MER: " + a1.getId() + " (ARRÊT)";
                         sidebarController.addAlert(msg);
                     }
                 }
-                // Max Altitude Check (150m)
+                // Vérification Plafond Max (150m)
                 if (a1.getZ() >= 150.0) {
                     if (a1.getState() != ActifMobile.AssetState.STOPPED) {
                         a1.setState(ActifMobile.AssetState.STOPPED);
@@ -266,7 +333,7 @@ public class MainController {
                 }
             }
 
-            // 3. Submarine Depth Constraints (-150m)
+            // 3. Contraintes de Profondeur Sous-Marins (-150m)
             if (a1 instanceof com.spiga.core.VehiculeSousMarin) {
                 if (a1.getZ() <= -150.0) {
                     if (a1.getState() != ActifMobile.AssetState.STOPPED) {
@@ -282,6 +349,10 @@ public class MainController {
         }
     }
 
+    /**
+     * Met à jour le label de statut principal avec les infos météo ou la sélection
+     * courante.
+     */
     private void updateStatusLabel() {
         if (lblStatus == null)
             return;
@@ -308,11 +379,23 @@ public class MainController {
         }
     }
 
+    /**
+     * Callback déclenché lors d'une sélection via le panneau latéral.
+     * Synchronise la sélection sur la carte.
+     *
+     * @param assets La liste des actifs sélectionnés dans la liste latérale.
+     */
     public void onSidebarSelection(List<ActifMobile> assets) {
         mapPane.selectAll(assets);
         updateStatusLabel();
     }
 
+    /**
+     * Callback déclenché lors d'un changement de sélection sur la carte.
+     * Synchronise la sélection dans le panneau latéral.
+     *
+     * @param selection La liste des actifs nouvellement sélectionnés sur la carte.
+     */
     private void handleSelectionChanged(List<ActifMobile> selection) {
         if (sidebarController != null) {
             sidebarController.selectAssets(selection);
@@ -322,15 +405,26 @@ public class MainController {
             // cleared
         } else if (selection.size() == 1) {
             // detail updated by selectAssets or separate call?
-            // selectAssets should handle details if single.
         } else {
             lblStatus.setText(selection.size() + " actifs sélectionnés");
         }
         updateStatusLabel();
     }
 
+    /**
+     * Gère les clics sur la carte principale.
+     * <p>
+     * Le comportement dépend du contexte :
+     * 1. Mode Création (Ajout d'actif).
+     * 2. Mode Ciblage de Mission (Définition d'un point destination).
+     * 3. Mode Déplacement Manuel (Si des actifs sont sélectionnés).
+     * 4. Sinon, désélection générale.
+     * </p>
+     *
+     * @param coords Les coordonnées [x, y] du clic dans le monde.
+     */
     private void handleMapClicked(double[] coords) {
-        // 1. Asset Creation Mode (Priority)
+        // 1. Mode Création d'Actif (Priorité)
         if (pendingAssetType != null) {
             createAssetAt(pendingAssetType, coords[0], coords[1]);
             pendingAssetType = null;
@@ -339,9 +433,9 @@ public class MainController {
             return;
         }
 
-        // 2. Mission Target Mode
+        // 2. Mode Ciblage de Mission
         if (mapPane.isMissionTargetMode()) {
-            // Ask for Z
+            // Demande de l'altitude Z
             TextInputDialog dialog = new TextInputDialog("0");
             dialog.setTitle("Cible Mission");
             dialog.setHeaderText("Définir l'altitude/profondeur de la cible");
@@ -367,32 +461,38 @@ public class MainController {
             return;
         }
 
-        // 3. Implicit Manual Move (If assets selected)
+        // 3. Déplacement Manuel Implicite (Si actifs sélectionnés)
         List<ActifMobile> selected = mapPane.getSelectedAssets();
         if (selected != null && !selected.isEmpty()) {
             executeManualMove(selected, coords);
             return;
         }
 
-        // 4. Default: Deselect (Background Click)
+        // 4. Par défaut : Désélection (Clic dans le vide)
         mapPane.deselectAll();
     }
 
+    /**
+     * Exécute une commande de déplacement manuel pour un groupe d'actifs.
+     * <p>
+     * Calcule la destination et demande éventuellement une altitude Z si nécessaire
+     * (sauf pour les navires de surface qui restent à Z=0).
+     * </p>
+     */
     private void executeManualMove(List<ActifMobile> selected, double[] coords) {
         if (selected == null || selected.isEmpty())
             return;
 
-        // HEAVY REFACTOR: Check if we can skip the dialog (Boats only)
         boolean allSurface = selected.stream().allMatch(a -> a instanceof com.spiga.core.VehiculeSurface);
 
         if (allSurface) {
-            // Auto Z=0 for Boats
+            // Auto Z=0 pour les bateaux
             performManualMoveInternal(selected, coords[0], coords[1], 0.0);
         } else {
-            // Calculate Average Z for pre-fill or default
+            // Calculer Z moyen pour pré-remplir
             double avgZ = selected.stream().mapToDouble(ActifMobile::getZ).average().orElse(0.0);
 
-            // Show Dialog for Z
+            // Dialogue pour Z
             TextInputDialog dialog = new TextInputDialog(String.format("%.1f", avgZ));
             dialog.setTitle("Déplacement Manuel");
             dialog.setHeaderText("Définir destination");
@@ -410,17 +510,21 @@ public class MainController {
         }
     }
 
+    /**
+     * Applique le déplacement manuel interne, gère la formation en essaim et les
+     * pauses de mission.
+     */
     private void performManualMoveInternal(List<ActifMobile> selected, double x, double y, double z) {
         boolean violationDetected = false;
 
-        // SWARM LOGIC: Distribute targets if > 1 asset
+        // Logique d'essaim : Distribuer les cibles en cercle si > 1 actif
         boolean distribute = selected.size() > 1;
-        double radius = 50.0; // 50m radius formation
+        double radius = 50.0; // Rayon de formation 50m
         double angleStep = (2 * Math.PI) / selected.size();
         double currentAngle = 0.0;
 
         for (ActifMobile asset : selected) {
-            // Check for active mission and PAUSE it
+            // Mettre en PAUSE toute mission en cours
             if (asset.getCurrentMission() != null) {
                 com.spiga.management.Mission m = asset.getCurrentMission();
 
@@ -431,7 +535,7 @@ public class MainController {
                 }
             }
 
-            // Calculate Target Coordinates
+            // Calcul Coordonnées Cible
             double tx = x;
             double ty = y;
 
@@ -441,22 +545,21 @@ public class MainController {
                 currentAngle += angleStep;
             }
 
-            // Set Target (Manual override)
+            // Définition de la cible (Override)
             asset.setTarget(tx, ty, z);
 
-            // Check for zone violation via warning (replaces exception pattern)
+            // Vérification de validation de zone interdite (via warning collision)
             if (asset.getCollisionWarning() != null &&
                     asset.getCollisionWarning().contains("ZONE_VIOLATION")) {
                 violationDetected = true;
-                asset.setCollisionWarning(null); // Clear after handling
+                asset.setCollisionWarning(null);
             } else {
-                // Force state update to ensure movement registers
+                // Forcer l'état pour assurer le mouvement
                 asset.setState(ActifMobile.AssetState.MOVING_TO_TARGET);
             }
         }
 
         if (violationDetected) {
-            // Show POPUP as requested
             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
                     javafx.scene.control.Alert.AlertType.ERROR);
             alert.setTitle("Zone Interdite");
@@ -471,49 +574,8 @@ public class MainController {
         }
     }
 
-    // Deprecated method removed
-
-    @SuppressWarnings("unused")
-    private void handleSideViewZSelection(double targetZ) {
-        List<ActifMobile> selected = mapPane.getSelectedAssets();
-        if (selected == null || selected.isEmpty()) {
-            return;
-        }
-
-        // Filter valid assets (ignore Mission state)
-        List<ActifMobile> eligibleAssets = selected.stream()
-                .filter(a -> a.getEtat() != ActifMobile.EtatOperationnel.EN_MISSION)
-                .collect(Collectors.toList());
-
-        if (eligibleAssets.isEmpty()) {
-            sidebarController.addAlert("Impossible de changer l'altitude (En Mission)");
-            return;
-        }
-
-        for (ActifMobile asset : eligibleAssets) {
-            // Check physical constraints
-            if (asset instanceof com.spiga.core.VehiculeSurface) {
-                // Surface boats cannot change Z
-                continue;
-            }
-            if (asset instanceof com.spiga.core.ActifAerien && targetZ < 0) {
-                // Prevent drones underwater
-                continue;
-            }
-            if (asset instanceof com.spiga.core.VehiculeSousMarin && targetZ > 0) {
-                // Prevent subs flying
-                continue;
-            }
-
-            // Apply Z change, keep current TargetXY
-            asset.setTarget(asset.getTargetX(), asset.getTargetY(), targetZ);
-            asset.setState(ActifMobile.AssetState.MOVING_TO_TARGET);
-        }
-
-        lblStatus.setText(String.format("Altitude/Profondeur ajustée : %.0fm", targetZ));
-    }
-
     // --- VISUAL HELPERS ---
+
     public void showMissionTargetMarker(double x, double y, double z) {
         if (mapPane != null) {
             mapPane.setTemporaryTarget(x, y);
@@ -528,11 +590,11 @@ public class MainController {
 
     }
 
-    // --- Asset Creation with Dialogs ---
+    // --- Gestion de la Création d'Actifs (Dialogues) ---
 
     @FXML
     private void handleAddDrone() {
-        // Ask for Drone Type
+        // Demande type Drone
         List<String> choices = List.of("Reconnaissance", "Logistique");
         ChoiceDialog<String> dialog = new ChoiceDialog<>("Reconnaissance", choices);
         dialog.setTitle("Choix du Drone");
@@ -562,7 +624,7 @@ public class MainController {
         lblStatus.setText("Tous les actifs sélectionnés");
     }
 
-    // --- SM MULTI-MISSION START ---
+    // --- Démarrage Multi-Mission ---
     @FXML
     public void handleStartSelectedMissions() {
         List<ActifMobile> selected = mapPane.getSelectedAssets();
@@ -577,7 +639,7 @@ public class MainController {
         for (ActifMobile asset : selected) {
             Mission m = asset.getCurrentMission();
             if (m == null) {
-                logger.warning("⚠️ Asset " + asset.getId() + ": No mission assigned.");
+                logger.warning("⚠️ Asset " + asset.getId() + ": Pas de mission assignée.");
                 continue;
             }
 
@@ -593,40 +655,36 @@ public class MainController {
                 m.resume(simTime);
                 actionCount++;
             } else if (m.getStatut() == Mission.StatutMission.EN_COURS) {
-                // Ignore
+                // Déjà en cours, on ignore
             }
         }
 
         if (actionCount > 0) {
             lblStatus.setText("SM Start: " + actionCount + " missions lancées/re-lancées.");
             sidebarController.addAlert("SM Start: " + actionCount + " missions started/restarted.");
-            refreshSidebar(); // Assume this method exists or remove if not needed, but context implies we
-                              // should refresh sidebar
+            refreshSidebar();
         } else {
             sidebarController.addAlert("Aucune mission éligible (Planifiée/Terminée) sur la sélection.");
         }
     }
 
-    // refreshSidebar() moved to bottom of class to avoid duplicates
-
     // --- DEMO COLLISION START ---
     @FXML
     public void handleDemoCollision() {
-        // Clear existing
         try {
             gestionnaire.getFlotte().clear();
             mapPane.deselectAll();
             if (sidebarController != null)
                 sidebarController.clearDetails();
 
-            // Spawn 2 Drones
+            // Création de 2 Drones pour collision frontale
             DroneReconnaissance d1 = new DroneReconnaissance("Drone Demo 1", 200, 500, 100);
             DroneReconnaissance d2 = new DroneReconnaissance("Drone Demo 2", 800, 500, 100);
 
             gestionnaire.ajouterActif(d1);
             gestionnaire.ajouterActif(d2);
 
-            // Force Targets Head-On
+            // Forces Cibles Frontales
             d1.setTarget(800, 500, 100);
             d2.setTarget(200, 500, 100);
 
@@ -680,7 +738,7 @@ public class MainController {
     }
 
     private void createAssetAt(String type, double x, double y) {
-        // --- SAFETY CHECK ---
+        // --- VÉRIFICATION SÉCURITÉ (Placement) ---
         if (!SwarmValidator.isPlacementValid(x, y, 0, gestionnaire.getFlotte())) {
             String msg = "Placement Curseur refusé (Prox.)";
             if (sidebarController != null)
@@ -744,7 +802,7 @@ public class MainController {
                 showAlert("Erreur", "Altitude > 0 requise.");
                 return;
             }
-            // --- SAFETY CHECK ---
+            // --- VÉRIFICATION SÉCURITÉ ---
             if (!SwarmValidator.isPlacementValid(x, y, z, gestionnaire.getFlotte())) {
                 String msg = "Placement refusé (Prox.): Drone vs Essaim";
                 if (sidebarController != null)
@@ -833,9 +891,6 @@ public class MainController {
         alert.showAndWait();
     }
 
-    // Duplicate handleStartMission removed.
-    // The actual logic is located around line 626.
-
     public void enableMissionTargetMode() {
         mapPane.setMissionTargetMode(true);
     }
@@ -866,8 +921,6 @@ public class MainController {
 
     public void removeAsset(ActifMobile asset) {
         if (asset != null && gestionnaire != null) {
-            // Use Manager to remove (SimulationService wraps it but might not expose remove
-            // directly)
             gestionnaire.supprimerActif(asset.getId());
             mapPane.deselectAll();
             if (sidebarController != null) {

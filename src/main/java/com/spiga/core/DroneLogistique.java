@@ -3,23 +3,54 @@ package com.spiga.core;
 import com.spiga.environment.RestrictedZone;
 
 /**
- * DroneLogistique - Drone logistique
- * Conforme à SPIGA-SPEC.txt section 1.2
- * 
- * Spécialisé en capacité de charge utile et autonomie
- * Vitesse réduite, consommation optimisée
+ * Classe concrète représentant un drone de transport logistique.
+ * <p>
+ * Ce drone est spécialisé pour le transport de charge utile (médicaments,
+ * pièces, etc.).
+ * Il se caractérise par une vitesse modérée (60 km/h) et une autonomie élevée
+ * (8h).
+ * Il implémente des règles strictes de sécurité, notamment l'interdiction de
+ * survol des zones restreintes.
+ * </p>
+ * <p>
+ * <strong>Spécificités :</strong>
+ * <ul>
+ * <li>Capacité d'emport limitée par {@code chargeUtileMax}.</li>
+ * <li>Algorithmes de contournement automatique des zones interdites.</li>
+ * <li>Consommation d'énergie proportionnelle à la charge transportée.</li>
+ * </ul>
+ * </p>
  */
 public class DroneLogistique extends ActifAerien {
 
+    /** Charge utile maximale supportée en kg. */
     private double chargeUtileMax;
+    /** Charge actuellement transportée en kg. */
     private double chargeActuelle;
 
+    /**
+     * Constructeur standard.
+     * Initialise le drone avec une vitesse de 60 km/h et une autonomie de 8h.
+     *
+     * @param id       Identifiant unique.
+     * @param x        Position X.
+     * @param y        Position Y.
+     * @param altitude Altitude Z.
+     */
     public DroneLogistique(String id, double x, double y, double altitude) {
         super(id, x, y, altitude, 60.0, 8.0); // 60 km/h, 8h autonomie
         this.chargeUtileMax = 50.0; // 50kg
         this.chargeActuelle = 0.0;
     }
 
+    /**
+     * Calcule la consommation énergétique en tenant compte de la charge.
+     * <p>
+     * Formule : Consommation de base (2.4) + surcoût par kg de charge (0.05).
+     * </p>
+     *
+     * @return Consommation en "unités par heure".
+     */
     @Override
     public double getConsommation() {
         // FAST BATTERY DEMO (Calibrated for 10x time scale)
@@ -27,6 +58,18 @@ public class DroneLogistique extends ActifAerien {
         return baseParams + (chargeActuelle * 0.05);
     }
 
+    /**
+     * Définit la cible avec validation avancée des zones interdites.
+     * <p>
+     * Vérifie si la cible est dans une zone interdite (Rejet) ou si le trajet la
+     * traverse
+     * (Calcul automatique de contournement).
+     * </p>
+     *
+     * @param tx Coordonnée X cible.
+     * @param ty Coordonnée Y cible.
+     * @param tz Coordonnée Z cible.
+     */
     @Override
     public void setTarget(double tx, double ty, double tz) {
         // 1. Check Zones
@@ -174,12 +217,20 @@ public class DroneLogistique extends ActifAerien {
         setTarget(tx, ty, tz);
     }
 
+    /**
+     * Ajoute une charge à transporter.
+     * 
+     * @param poids Poids en kg à ajouter.
+     */
     public void charger(double poids) {
         if (chargeActuelle + poids <= chargeUtileMax) {
             chargeActuelle += poids;
         }
     }
 
+    /**
+     * Décharge complètement le drone.
+     */
     public void decharger() {
         chargeActuelle = 0;
     }

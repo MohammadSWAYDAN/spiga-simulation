@@ -3,25 +3,35 @@ package com.spiga.core;
 import com.spiga.environment.Weather;
 
 /**
- * Classe Abstraite Intermediaire : Actif Marin
- * 
- * CONCEPTS CLES (SPECIALISATION) :
- * 
- * 1. Factorisation du Code :
- * - C'est quoi ? Mettre le code commun au meme endroit.
- * - Pourquoi ici ? Sous-marins et Navires de surface partagent des contraintes
- * d'eau (Profondeur).
- * Au lieu de reecrire la gestion de la profondeur dans les deux, on la met ici.
- * 
- * 2. Distinction Surface/Sous-marin :
- * - Cette classe sert de socle pour VehiculeSurface (Z=0 fixe) et
- * VehiculeSousMarin (Z negatif).
+ * Classe abstraite intermédiaire représentant un actif marin (Navire ou
+ * Sous-marin).
+ * <p>
+ * Cette classe factorise la logique commune aux véhicules évoluant en milieu
+ * aquatique,
+ * notamment la gestion de la profondeur (Z <= 0) et l'impact des vagues sur la
+ * navigation.
+ * </p>
+ *
+ * @see VehiculeSurface
+ * @see VehiculeSousMarin
  */
 public abstract class ActifMarin extends ActifMobile {
 
+    /** Profondeur maximale (la plus proche de la surface, souvent 0). */
     protected double profondeurMax;
+    /** Profondeur minimale (la plus profonde, ex: -500). */
     protected double profondeurMin;
 
+    /**
+     * Constructeur pour un actif marin.
+     *
+     * @param id           Identifiant unique.
+     * @param x            Position X.
+     * @param y            Position Y.
+     * @param profondeur   Profondeur initiale Z.
+     * @param vitesseMax   Vitesse max.
+     * @param autonomieMax Autonomie max.
+     */
     public ActifMarin(String id, double x, double y, double profondeur, double vitesseMax, double autonomieMax) {
         super(id, x, y, profondeur, vitesseMax, autonomieMax);
         this.profondeurMax = 0; // Surface par défaut
@@ -32,6 +42,19 @@ public abstract class ActifMarin extends ActifMobile {
         this.profondeurMax = profondeurMax;
     }
 
+    /**
+     * Calcule l'efficacité de déplacement en fonction de la météo marine.
+     * <p>
+     * Modèle :
+     * <ul>
+     * <li>Les vagues réduisent la vitesse (-5% par mètre de vague).</li>
+     * <li>Si immergé (Z < -5m), l'effet du vent est atténué.</li>
+     * </ul>
+     * </p>
+     *
+     * @param w Conditions météo.
+     * @return Facteur d'efficacité (0.1 à 1.0).
+     */
     @Override
     protected double getSpeedEfficiency(Weather w) {
         // Base Wind Drag (Less relevant for underwater, but keeps inheritance chain)

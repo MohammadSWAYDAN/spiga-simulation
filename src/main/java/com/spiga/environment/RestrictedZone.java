@@ -1,18 +1,34 @@
 package com.spiga.environment;
 
 /**
- * Zone Interdite (Zone No-Fly / No-Sail).
- * 
- * Abstraction : Modelise une zone cylindrique (Cercle + Hauteur min/max) ou les
- * actifs ne doivent pas entrer.
- * Utilise par SimulationService pour valider les deplacements.
+ * Représente une zone géographique réglementée (No-Fly Zone, Zone militaire).
+ * <p>
+ * <strong>Abstraction :</strong> Modélise un cylindre vertical défini par :
+ * <ul>
+ * <li>Un cercle 2D (Centre X,Y + Rayon).</li>
+ * <li>Une plage d'altitude/profondeur (Min Z, Max Z).</li>
+ * </ul>
+ * Les drones logistiques ne peuvent pas la traverser (Mur), tandis que certains
+ * actifs
+ * peuvent être autorisés (Reconnaissance).
+ * </p>
  */
 public class RestrictedZone {
     private String id;
     private double x, y;
     private double radius;
-    private double minZ, maxZ; // Height limits (e.g., 0 to 100m)
+    private double minZ, maxZ;
 
+    /**
+     * Crée une nouvelle zone restreinte.
+     * 
+     * @param id     Identifiant nom.
+     * @param x      Centre X.
+     * @param y      Centre Y.
+     * @param radius Rayon.
+     * @param minZ   Plancher Z.
+     * @param maxZ   Plafond Z.
+     */
     public RestrictedZone(String id, double x, double y, double radius, double minZ, double maxZ) {
         this.id = id;
         this.x = x;
@@ -22,6 +38,14 @@ public class RestrictedZone {
         this.maxZ = maxZ;
     }
 
+    /**
+     * Vérifie si un point se trouve dans le volume interdit.
+     * 
+     * @param ax X à tester.
+     * @param ay Y à tester.
+     * @param az Z à tester.
+     * @return true si dedans.
+     */
     public boolean isInside(double ax, double ay, double az) {
         // Check Z first (optimisation)
         if (az < minZ || az > maxZ)

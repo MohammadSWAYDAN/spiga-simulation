@@ -1,15 +1,19 @@
 package com.spiga.core;
 
 /**
- * Interface Communicable - Définit les comportements de communication
- * Conforme à SPIGA-SPEC.txt section 1.3
+ * Interface définissant les capacités de communication entre actifs.
+ * <p>
+ * Permet l'échange d'informations (ordres, alertes, statuts) au sein de la
+ * flotte.
+ * </p>
  */
 public interface Communicable {
+
     /**
-     * Transmet une alerte à un actif cible
-     * 
-     * @param message    le message d'alerte
-     * @param actifCible l'actif destinataire
+     * Transmet un message d'alerte spécifique à un autre actif.
+     *
+     * @param message    Le contenu du message (ex: "Collision imminente").
+     * @param actifCible L'actif destinataire du message.
      */
     void transmettreAlerte(String message, ActifMobile actifCible);
 }

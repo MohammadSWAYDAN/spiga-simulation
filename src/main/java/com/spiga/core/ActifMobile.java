@@ -9,36 +9,59 @@ import java.util.Queue;
 import java.util.logging.Logger;
 
 /**
- * Classe Abstraite : ActifMobile
- * 
- * CONCEPTS CLES (POO) :
- * 
- * 1. Abstraction (abstract class) :
- * - C'est quoi ? Une classe qu'on ne peut pas creer directement (pas de new
- * ActifMobile()).
- * - Pourquoi ici ? Un "ActifMobile" est un concept general. Dans la realite, on
- * a des Drones ou des Navires, pas juste des "mobiles" flous.
- * Cette classe sert de base commune a tous les types de vehicules.
- * 
- * 2. Encapsulation (protected/private) :
- * - C'est quoi ? Proteger les donnees de l'objet.
- * - Pourquoi ici ? Les attributs x, y, z sont protected pour que seuls cet
- * objet et ses ENFANTS (Drones, etc.) puissent les modifier directement.
- * 
- * 3. Polymorphisme (Interfaces) :
- * - C'est quoi ? Un objet peut prendre plusieurs formes.
- * - Pourquoi ici ? En implementant Deplacable, Pilotable, cet objet promet
- * qu'il sait "se deplacer" et "etre pilote".
- * Le systeme pourra donc traiter tous les ActifMobile de la meme facon.
- * 
- * Conforme a SPIGA-SPEC.txt section 1.1
+ * Classe abstraite représentant un actif mobile générique dans la simulation.
+ * <p>
+ * Cette classe définit le contrat commun et les comportements de base pour tous
+ * les véhicules
+ * (Drones, Navires, Sous-marins). Elle implémente les interfaces
+ * {@link Deplacable}, {@link Rechargeable},
+ * {@link Communicable}, {@link Pilotable} et {@link Alertable}, fournissant
+ * ainsi une base solide
+ * pour le polymorphisme.
+ * </p>
+ * <p>
+ * <strong>Responsabilités Principales :</strong>
+ * <ul>
+ * <li>Gestion de la position 3D (x, y, z) et de la cinématique (vitesse,
+ * accélération).</li>
+ * <li>Gestion de l'énergie (autonomie, consommation).</li>
+ * <li>Système de navigation par champs de potentiel (évitement d'obstacles,
+ * suivi de cible).</li>
+ * <li>Gestion de la file d'attente des missions.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * <strong>Invariants :</strong>
+ * <ul>
+ * <li>La position doit respecter les limites du monde (géré par
+ * {@code clampPosition}).</li>
+ * <li>L'autonomie est comprise entre 0 et {@code autonomieMax}.</li>
+ * </ul>
+ * </p>
+ *
+ * @see ActifAerien
+ * @see ActifMarin
  */
 public abstract class ActifMobile implements Deplacable, Rechargeable, Communicable, Pilotable, Alertable {
 
+    /**
+     * États opérationnels de haut niveau pour la gestion administrative de l'actif.
+     */
     public enum EtatOperationnel {
-        AU_SOL, EN_MISSION, EN_MAINTENANCE, EN_PANNE
+        /** L'actif est inactif au sol/port. */
+        AU_SOL,
+        /** L'actif est engagé dans une mission ou une activité. */
+        EN_MISSION,
+        /** L'actif est en maintenance (indisponible). */
+        EN_MAINTENANCE,
+        /** L'actif a subi une panne critique. */
+        EN_PANNE
     }
 
+    /**
+     * États détaillés de la machine à états finis (FSM) contrôlant le comportement
+     * immédiat.
+     */
     public enum AssetState {
         IDLE, MOVING_TO_TARGET, EXECUTING_MISSION, RETURNING_LEVEL, RETURNING_TO_BASE, LOW_BATTERY, RECHARGING, STOPPED
     }
@@ -46,62 +69,139 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     private static final Logger logger = Logger.getLogger(ActifMobile.class.getName());
 
     // --- ENCAPSULATION ---
+    /**
+     * Mode de navigation actuel (Normal ou Evitement).
+     */
     public enum NavigationMode {
         NORMAL, AVOIDING
     }
 
     // Protected : Accessible par les classes filles (Héritage)
-    protected String id;
-    protected double x, y, z; // Position 3D
-    protected double vitesseMax;
-    protected double autonomieMax; // Heures
 
+    /** Identifiant unique de l'actif. */
+    protected String id;
+
+    /** Position X en mètres (Convention : Est/Ouest). */
+    protected double x;
+    /** Position Y en mètres (Convention : Nord/Sud). */
+    protected double y;
+    /** Position range Z en mètres (Altitude positive, Profondeur négative). */
+    protected double z;
+
+    /** Vitesse maximale théorique en m/s. */
+    protected double vitesseMax;
+    /** Autonomie maximale en heures. */
+    protected double autonomieMax;
+
+    /** Mode de navigation courant. */
     protected NavigationMode navigationMode = NavigationMode.NORMAL;
+
+    /** Cible temporaire utilisée lors de l'évitement d'obstacles. */
     protected double tempTargetX, tempTargetY, tempTargetZ;
+
+    /** Heure système (ms) de fin de la procédure d'évitement. */
     protected long avoidanceEndTime = 0;
-    protected boolean isDiverted = false; // True only if avoiding via Waypoint (Collision)
+
+    /**
+     * Indique si l'actif est détourné de sa trajectoire nominale (ex:
+     * contournement).
+     */
+    protected boolean isDiverted = false;
 
     // Potential Field Vectors
+    /** Composante X de la force de répulsion. */
     protected double avoidForceX = 0;
+    /** Composante Y de la force de répulsion. */
     protected double avoidForceY = 0;
+    /** Composante Z de la force de répulsion. */
     protected double avoidForceZ = 0;
-    protected double steeringBias = 0.0; // -1.0 (Right), 0.0 (None), 1.0 (Left)
 
-    protected Queue<Mission> missionQueue = new LinkedList<>(); // Mission Queue
+    /**
+     * Biais de direction pour contourner les obstacles (-1.0 Droite, 1.0 Gauche).
+     */
+    protected double steeringBias = 0.0;
+
+    /** File d'attente des missions assignées. */
+    protected Queue<Mission> missionQueue = new LinkedList<>();
 
     // Environment Awareness
+    /**
+     * Liste partagée des zones restreintes connues (statique pour simplifier la
+     * simulation).
+     */
     public static List<RestrictedZone> KNOWN_ZONES = new ArrayList<>();
 
     // Waypoint Chaining (for Obstacle/Zone Avoidance)
+    /**
+     * Cible finale mémorisée lors d'un contournement par waypoint intermédiaire.
+     */
     protected Double finalTargetX, finalTargetY, finalTargetZ;
 
     // Getters/Setters for Navigation
+    /**
+     * Retourne le mode de navigation actuel.
+     * 
+     * @return Le mode (NORMAL ou AVOIDING).
+     */
     public NavigationMode getNavigationMode() {
         return navigationMode;
     }
 
+    /**
+     * Définit le mode de navigation.
+     * 
+     * @param mode Le nouveau mode.
+     */
     public void setNavigationMode(NavigationMode mode) {
         this.navigationMode = mode;
     }
 
+    /**
+     * Retourne l'heure de fin de l'évitement.
+     * 
+     * @return Timestamp en millisecondes.
+     */
     public long getAvoidanceEndTime() {
         return avoidanceEndTime;
     }
 
+    /**
+     * Définit l'heure de fin de l'évitement.
+     * 
+     * @param time Timestamp en millisecondes.
+     */
     public void setAvoidanceEndTime(long time) {
         this.avoidanceEndTime = time;
     }
 
+    /**
+     * Définit une cible temporaire pour l'actif.
+     * Utilisé principalement par les algorithmes d'évitement.
+     * 
+     * @param x Coordonnée X cible.
+     * @param y Coordonnée Y cible.
+     * @param z Coordonnée Z cible.
+     */
     public void setTempTarget(double x, double y, double z) {
         this.tempTargetX = x;
         this.tempTargetY = y;
         this.tempTargetZ = z;
     }
 
+    /**
+     * Retourne le biais de direction actuel.
+     * 
+     * @return Valeur entre -1.0 et 1.0.
+     */
     public double getSteeringBias() {
         return steeringBias;
     }
 
+    /**
+     * Définit le biais de direction pour les manœuvres de contournement.
+     * 
+     * @param bias Valeur entre -1.0 (droite) et 1.0 (gauche).
+     */
     public void setSteeringBias(double bias) {
         this.steeringBias = bias;
     }
@@ -119,30 +219,55 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         return tempTargetZ;
     }
 
+    /** Autonomie restante en heures. */
     protected double autonomieActuelle;
-    protected EtatOperationnel etat; // Enumération d'états
+    /** État opérationnel global. */
+    protected EtatOperationnel etat;
 
     // NOUVEAUX ATTRIBUTS
-    protected double velocityX, velocityY, velocityZ;
-    protected double targetX, targetY, targetZ;
-    protected AssetState state;
-    protected Mission currentMission;
-    protected boolean selected;
-    protected double speedModifier = 1.0;
-    protected double weatherSpeedModifier = 1.0;
-    protected String collisionWarning = null; // Alert message for UI
+    /** Vélocité instantanée sur X. */
+    protected double velocityX;
+    /** Vélocité instantanée sur Y. */
+    protected double velocityY;
+    /** Vélocité instantanée sur Z. */
+    protected double velocityZ;
 
-    // AVOIDANCE FIELDS - Consolidated
-    // navMode removed, using navigationMode defined above
-    // tempTarget fields removed, using those defined above
+    /** Cible principale active X. */
+    protected double targetX;
+    /** Cible principale active Y. */
+    protected double targetY;
+    /** Cible principale active Z. */
+    protected double targetZ;
+
+    /** État FSM courant. */
+    protected AssetState state;
+    /** Mission actuellement en cours d'exécution. */
+    protected Mission currentMission;
+    /** Indique si l'actif est sélectionné dans l'interface utilisateur. */
+    protected boolean selected;
+
+    /** Modificateur de vitesse global (0.0 à 1.0). */
+    protected double speedModifier = 1.0;
+    /** Modificateur de vitesse lié à la météo. */
+    protected double weatherSpeedModifier = 1.0;
+    /** Message d'avertissement de collision pour l'UI. */
+    protected String collisionWarning = null;
 
     // Dynamic Validation Constants & State - use SimConfig
     protected long lastSeaAlertTime = 0;
     protected static final long SEA_ALERT_COOLDOWN = 5000; // 5 seconds
 
     /**
-     * Constructeur.
-     * Appelé par les classes filles via <code>super()</code>.
+     * Constructeur parent appelé par les sous-classes.
+     * Initialise l'actif avec ses paramètres physiques de base.
+     *
+     * @param id           Identifiant unique.
+     * @param x            Position initiale X.
+     * @param y            Position initiale Y.
+     * @param z            Position initiale Z.
+     * @param vitesseMax   Vitesse maximale en m/s (ou km/h selon convention
+     *                     projet).
+     * @param autonomieMax Autonomie maximale en heures.
      */
     public ActifMobile(String id, double x, double y, double z, double vitesseMax, double autonomieMax) {
         this.id = id;
@@ -165,11 +290,14 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         this.selected = false;
     }
 
-    // Updated update signature to include Weather
+    /**
+     * Met à jour l'état de l'actif pour un pas de temps donné.
+     * Cette méthode orchestre le mouvement, la gestion de l'énergie et les timers.
+     *
+     * @param dt      Delta temps en secondes depuis la dernière update.
+     * @param weather Conditions météo actuelles (influence la vitesse et la conso).
+     */
     public void update(double dt, com.spiga.environment.Weather weather) {
-        // speedModifier = 1.0; // REMOVED: Managed by SimulationService to persist
-        // across checks
-
         if (weather != null) {
             weatherSpeedModifier = getSpeedMultiplier(weather);
         } else {
@@ -204,11 +332,22 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     }
 
     /**
-     * Enforces strict physical domain constraints.
-     * e.g. Surface vessels must have Z=0.
+     * Applique les contraintes physiques strictes sur la position.
+     * <p>
+     * Par exemple, force un navire à Z=0 ou empêche un sous-marin de voler.
+     * Doit être implémentée par chaque sous-classe concrète.
+     * </p>
      */
     protected abstract void clampPosition();
 
+    /**
+     * Active le mode d'évitement vers une cible temporaire.
+     *
+     * @param tx              Coordonnée X d'évitement.
+     * @param ty              Coordonnée Y d'évitement.
+     * @param tz              Coordonnée Z d'évitement.
+     * @param durationSeconds Durée de la manœuvre d'évitement.
+     */
     public void engageAvoidance(double tx, double ty, double tz, double durationSeconds) {
         this.navigationMode = NavigationMode.AVOIDING;
         this.isDiverted = true; // Use tempTarget
@@ -220,6 +359,16 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         this.setCollisionWarning("EVITEMENT TEMPORAIRE");
     }
 
+    /**
+     * Calcule et applique le déplacement vers, une cible.
+     * Intègre les champs de potentiel (répulsion des obstacles) et l'inertie.
+     *
+     * @param tx         Coordonnée X cible.
+     * @param ty         Coordonnée Y cible.
+     * @param tz_desired Coordonnée Z souhaitée.
+     * @param dt         Pas de temps.
+     * @param weather    Conditions météo.
+     */
     public void moveTowards(double tx, double ty, double tz_desired, double dt,
             com.spiga.environment.Weather weather) {
 
@@ -401,6 +550,9 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         }
     }
 
+    /**
+     * Réinitialise les forces d'évitement accumulées pour cette frame.
+     */
     public void resetAvoidanceForce() {
         this.avoidForceX = 0;
         this.avoidForceY = 0;
@@ -411,12 +563,26 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         }
     }
 
+    /**
+     * Ajoute une force d'évitement au vecteur courant.
+     * Les forces sont cumulatives (ex: plusieurs obstacles).
+     *
+     * @param fx Force en X.
+     * @param fy Force en Y.
+     * @param fz Force en Z.
+     */
     public void addAvoidanceForce(double fx, double fy, double fz) {
         this.avoidForceX += fx;
         this.avoidForceY += fy;
         this.avoidForceZ += fz;
     }
 
+    /**
+     * Met à jour le niveau de batterie en fonction de l'activité et de la météo.
+     * 
+     * @param dt      Temps écoulé.
+     * @param weather Météo actuelle.
+     */
     public void updateBattery(double dt, com.spiga.environment.Weather weather) {
         if (state == AssetState.EXECUTING_MISSION || state == AssetState.MOVING_TO_TARGET
                 || state == AssetState.RETURNING_TO_BASE) {
@@ -441,6 +607,10 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         }
     }
 
+    /**
+     * Vérifie l'état critique de la batterie et déclenche le retour base ou la
+     * panne.
+     */
     private void checkBatteryState() {
         if (autonomieActuelle <= 0) {
             state = AssetState.STOPPED;
@@ -466,17 +636,32 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         }
     }
 
+    /**
+     * Ordonne à l'actif de retourner à la base (0,0,0).
+     */
     public void returnToBase() {
         setTarget(0, 0, 0); // Base at origin
         this.state = AssetState.RETURNING_TO_BASE;
     }
 
+    /**
+     * Vérifie si l'actif a atteint sa cible courante.
+     * 
+     * @return true si distance < 1.0m.
+     */
     public boolean hasReachedTarget() {
         double dx = targetX - x;
         double dy = targetY - y;
         return Math.sqrt(dx * dx + dy * dy) < 1.0;
     }
 
+    /**
+     * Assigne une nouvelle mission à l'actif.
+     * Si l'actif est libre, la mission démarre immédiatement.
+     * Sinon, elle est ajoutée à la file d'attente.
+     *
+     * @param mission La mission à assigner.
+     */
     public void assignMission(Mission mission) {
         if (this.currentMission == null || this.currentMission.isTerminated()) {
             // Immediate start
@@ -495,6 +680,9 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         }
     }
 
+    /**
+     * Vérifie la file d'attente des missions et démarre la suivante si nécessaire.
+     */
     public void checkMissionQueue() {
         if ((currentMission == null || currentMission.isTerminated()) && !missionQueue.isEmpty()) {
             Mission next = missionQueue.poll();
@@ -508,6 +696,12 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         }
     }
 
+    /**
+     * Promeut une mission prioritaire (écrase la mission en cours qui retourne en
+     * queue).
+     * 
+     * @param manualChoice La mission à prioriser.
+     */
     public void promoteMission(Mission manualChoice) {
         if (manualChoice == currentMission)
             return;
@@ -539,6 +733,14 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         return missionQueue;
     }
 
+    /**
+     * Définit la cible de déplacement.
+     * Cette méthode sert de point d'entrée pour la validation des mouvements.
+     * 
+     * @param x Cible X.
+     * @param y Cible Y.
+     * @param z Cible Z.
+     */
     public void setTarget(double x, double y, double z) {
         this.targetX = x;
         this.targetY = y;
@@ -546,19 +748,28 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
         this.state = AssetState.MOVING_TO_TARGET;
     }
 
+    /**
+     * Retourne le pourcentage de batterie restant (0.0 à 1.0).
+     * 
+     * @return Ratio autonomieActuelle / autonomieMax.
+     */
     public double getBatteryPercent() {
         return autonomieActuelle / autonomieMax;
     }
 
+    /**
+     * Retourne la consommation de base de l'actif par heure de fonctionnement.
+     * 
+     * @return Consommation en heure (par convention, pour déduire de l'autonomie).
+     */
     public abstract double getConsommation();
 
     /**
-     * Calculates impact of weather on consumption.
-     * 1.0 = No impact. >1.0 = Increased consumption.
-     */
-    /**
      * Calculates speed multiplier based on weather.
      * 1.0 = Max Speed. <1.0 = Reduced Speed.
+     * 
+     * @param w Conditions météo.
+     * @return Facteur multiplicateur (0.0 à 1.0).
      */
     protected double getSpeedMultiplier(com.spiga.environment.Weather w) {
         return 1.0; // Default
@@ -567,6 +778,9 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     /**
      * Calculates battery consumption multiplier based on weather.
      * 1.0 = Normal drain. >1.0 = Increased drain.
+     * 
+     * @param w Conditions météo.
+     * @return Facteur multiplicateur (>= 1.0).
      */
     protected double getBatteryMultiplier(com.spiga.environment.Weather w) {
         return 1.0; // Default
@@ -753,6 +967,12 @@ public abstract class ActifMobile implements Deplacable, Rechargeable, Communica
     }
 
     // New getters
+    /**
+     * Retourne la vitesse actuelle effective en tenant compte des modificateurs
+     * (météo, etc).
+     * 
+     * @return Vitesse en m/s (approx).
+     */
     public double getVitesse() {
         return vitesseMax * speedModifier * weatherSpeedModifier; // Approximation of current speed capability
     }
