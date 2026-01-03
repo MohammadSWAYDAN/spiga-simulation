@@ -8,7 +8,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
-// Unused imports removed
+// import javafx.scene.text.Text; // unused
 import javafx.scene.text.Text;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,28 +18,52 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * Remplaçant du MapCanvas. Utilise un Pane et des Nodes (AssetNode).
+ * Composant de Carte Interactive (Vue de Dessus).
+ * <p>
+ * Remplace l'ancien Canvas monolithique par une approche basée sur des nœuds
+ * (Scene Graph).
+ * Gère plusieurs calques (Layers) : Grille, Zones/Obstacles, et Actifs Mobiles.
+ * Gère également le zoom (désactivé par défaut) et la conversion coordonnées
+ * Monde <-> Écran.
+ * </p>
+ *
+ * @author Equipe SPIGA
+ * @version 1.0
  */
 public class MapPane extends Pane {
 
+    /** Facteur d'échelle global (Pixels par Unité Monde). */
     private double scale = 1.0;
-    private double userZoom = 1.0; // User Zoom Factor (1.0 = fit)
-    private final Map<String, AssetNode> assetNodes = new HashMap<>(); // ID -> Node
-    private final Pane layersPane; // Container for zones, grid
-    private final Pane assetsPane; // Container for assets
+    private double userZoom = 1.0; // Facteur Zoom Utilisateur (1.0 = fit)
 
+    /**
+     * Map associant l'ID d'un actif à son nœud graphique pour des mises à jour
+     * rapides.
+     */
+    private final Map<String, AssetNode> assetNodes = new HashMap<>();
+
+    /** Calque d'arrière-plan (grille, zones statiques, obstacles). */
+    private final Pane layersPane;
+
+    /** Calque contenant les actifs mobiles (premier plan). */
+    private final Pane assetsPane;
+
+    /** Liste des actifs actuellement sélectionnés par l'utilisateur. */
     private List<ActifMobile> selectedAssets = new ArrayList<>();
 
-    // Callbacks
+    // Callbacks pour communiquer avec le Contrôleur
     private Consumer<List<ActifMobile>> onSelectionChanged;
     private Consumer<double[]> onMapClicked;
-    private Consumer<double[]> onMapRightClicked; // Restored
+    private Consumer<double[]> onMapRightClicked;
+
+    /** Mode Cible activé : le prochain clic définit une destination de mission. */
     private boolean missionTargetMode = false;
 
+    /**
+     * Constructeur. Initialise les calques et configure les interactions souris.
+     */
     public MapPane() {
         this.setStyle("-fx-background-color: linear-gradient(to bottom, #4facfe, #00f2fe);");
-        // Removed fixed PrefSize to allow resizing by parent
-        // this.setPrefSize(SimConfig.WORLD_WIDTH, SimConfig.WORLD_HEIGHT);
 
         layersPane = new Pane();
         assetsPane = new Pane();
@@ -47,11 +71,16 @@ public class MapPane extends Pane {
 
         setupInteractions();
 
-        // Auto-Scale Logic (Base)
+        // Réajustement automatique de l'échelle quand la fenêtre change de taille
         this.widthProperty().addListener((obs, oldVal, newVal) -> updateScale());
         this.heightProperty().addListener((obs, oldVal, newVal) -> updateScale());
     }
 
+    /**
+     * Recalcule l'échelle d'affichage pour que tout le monde (WORLD_WIDTH x
+     * WORLD_HEIGHT)
+     * tienne dans la fenêtre visible, tout en conservant le ratio d'aspect.
+     */
     private void updateScale() {
         double w = getWidth();
         double h = getHeight();
@@ -63,50 +92,44 @@ public class MapPane extends Pane {
         double scaleY = h / SimConfig.WORLD_HEIGHT;
         double fitScale = Math.min(scaleX, scaleY);
 
-        // Apply User Zoom
+        // Applique le zoom utilisateur par-dessus
         this.scale = fitScale * userZoom;
 
-        // Center the content if aspect ratios differ?
-        // For simplicity, we just align top-left logic or we could translate.
-        // But AssetNode.update uses (x*scale, y*scale) so it draws from 0,0.
-
-        // Refresh visuals immediately if possible
+        // Force le rafraîchissement
         requestLayout();
 
-        // We need to trigger a redraw of assets and grid with new scale
-        // But draw() is called by AnimationTimer in Controller.
-        // Ideally we just update scale and next update() call fetches it.
-        // However, static elements (grid) need explicit redraw.
+        // Redessiner la grille immédiatemment (car statique)
         layersPane.getChildren().clear();
         drawGrid();
-        // drawZones... we need the list of zones to redraw.
-        // We can't easily redraw zones here without the list.
-        // They will be redrawn on next Controller update loop anyway!
+
+        // Note: Zones et Obstacles seront redessinés à la prochaine boucle update()
     }
 
+    /**
+     * Configure la gestion des événements souris (Zoom, Clic, Clic Droit).
+     */
     private void setupInteractions() {
-        // Zoom Handling (Ctrl + Scroll)
+        // Zoom (Ctrl + Molette)
         this.setOnScroll(e -> {
             if (e.isControlDown()) {
                 e.consume();
                 double delta = e.getDeltaY();
-                double zoomFactor = 1.1; // 10% zoom
+                double zoomFactor = 1.1; // 10%
                 if (delta < 0) {
                     userZoom /= zoomFactor;
                 } else {
                     userZoom *= zoomFactor;
                 }
-                // Clamp User Zoom (0.1x to 10x relative to fit)
+                // Clamp User Zoom (0.1x to 10x)
                 userZoom = Math.max(0.1, Math.min(userZoom, 10.0));
 
-                updateScale(); // Recalculate true scale
+                updateScale();
             }
         });
-        // Zoom Removed as per user request
 
         this.setOnMouseClicked(e -> {
-            boolean isBackground = !(e.getTarget() instanceof AssetNode); // Simple check
-            // Better check: target is MapPane or LayersPane (not AssetNode)
+            boolean isBackground = !(e.getTarget() instanceof AssetNode);
+            // Vérification simple : si la cible n'est pas un noeud d'actif, c'est le fond
             if (!isBackground && e.getTarget() instanceof javafx.scene.Node) {
                 javafx.scene.Node n = (javafx.scene.Node) e.getTarget();
                 while (n != null && n != this) {
@@ -119,22 +142,21 @@ public class MapPane extends Pane {
             }
 
             if (!isBackground)
-                return; // Let AssetNode/Bubble handle it
+                return; // Laisser l'événement à AssetNode
 
             double wx = screenToWorldX(e.getX());
             double wy = screenToWorldY(e.getY());
 
             if (e.getButton() == javafx.scene.input.MouseButton.SECONDARY) {
-                // Right Click -> Move Command
+                // Clic Droit
                 if (onMapRightClicked != null) {
                     onMapRightClicked.accept(new double[] { wx, wy });
                 }
             } else {
-                // Left Click -> Select / Target Mode
+                // Clic Gauche -> Sélection ou Mode Cible
                 if (missionTargetMode && onMapClicked != null) {
                     onMapClicked.accept(new double[] { wx, wy });
                 } else {
-                    // Do not deselectAll() here. Let controller decide.
                     if (onMapClicked != null) {
                         onMapClicked.accept(new double[] { wx, wy });
                     }
@@ -143,8 +165,16 @@ public class MapPane extends Pane {
         });
     }
 
+    /**
+     * Met à jour l'affichage de la carte, des actifs et des éléments
+     * environnementaux.
+     *
+     * @param assets          Liste des actifs mobiles à afficher.
+     * @param obstacles       Liste des obstacles.
+     * @param restrictedZones Liste des zones interdites.
+     */
     public void update(List<ActifMobile> assets, List<Obstacle> obstacles, List<RestrictedZone> restrictedZones) {
-        // 1. Sync Assets
+        // 1. Synchronisation des Actifs
         List<String> currentIds = new ArrayList<>();
 
         for (ActifMobile asset : assets) {
@@ -152,9 +182,10 @@ public class MapPane extends Pane {
             AssetNode node = assetNodes.get(asset.getId());
 
             if (node == null) {
-                // New Asset
+                // Nouvel Actif détecté -> Création du noeud
                 node = new AssetNode(asset);
                 final AssetNode finalNode = node;
+                // Gestionnaire de clic sur l'actif
                 node.setOnMouseClicked(e -> {
                     e.consume();
                     handleAssetClick(finalNode.getAsset(), e.isControlDown());
@@ -163,12 +194,12 @@ public class MapPane extends Pane {
                 assetNodes.put(asset.getId(), node);
             }
 
-            // Update Position & State
+            // Mise à jour Position & État
             node.update(scale);
             node.setSelected(selectedAssets.contains(asset));
         }
 
-        // Remove dead assets
+        // Suppression des actifs disparus (morts)
         List<String> toRemove = assetNodes.keySet().stream()
                 .filter(id -> !currentIds.contains(id))
                 .collect(Collectors.toList());
@@ -177,10 +208,8 @@ public class MapPane extends Pane {
             assetNodes.remove(id);
         });
 
-        // 2. Draw Static Elements (Zones, Grid) only if needed or cleared
-        // For simplicity, we can redraw zones if they change, but here we might assume
-        // static?
-        // Let's do a simple clear/redraw for zones to be safe, or optimize later.
+        // 2. Redessin des éléments statiques (Optimisation possible : ne redessiner que
+        // si chgt)
         layersPane.getChildren().clear();
         drawGrid();
         drawZones(restrictedZones);
@@ -188,12 +217,13 @@ public class MapPane extends Pane {
     }
 
     private void drawGrid() {
-        // Simple grid lines
+        // Lignes verticales
         for (double x = 0; x <= SimConfig.WORLD_WIDTH; x += 100) {
             Line l = new Line(x * scale, 0, x * scale, SimConfig.WORLD_HEIGHT * scale);
             l.setStroke(Color.rgb(255, 255, 255, 0.2));
             layersPane.getChildren().add(l);
         }
+        // Lignes horizontales
         for (double y = 0; y <= SimConfig.WORLD_HEIGHT; y += 100) {
             Line l = new Line(0, y * scale, SimConfig.WORLD_WIDTH * scale, y * scale);
             l.setStroke(Color.rgb(255, 255, 255, 0.2));
@@ -223,23 +253,21 @@ public class MapPane extends Pane {
         for (Obstacle obs : obstacles) {
             Circle c = new Circle(obs.getX() * scale, obs.getY() * scale, obs.getRadius() * scale);
 
-            // Color Coding based on Z height
+            // Code Couleur selon Altitude/Profondeur
             if (obs.getZ() > 10) {
-                // AERIAL (Mountain/Structure) - Red/Brown
-                c.setFill(Color.rgb(139, 69, 19, 0.6)); // SaddleBrown
+                // AERIEN (Montagne) - Marron Rouge
+                c.setFill(Color.rgb(139, 69, 19, 0.6));
                 c.setStroke(Color.DARKRED);
-
-                // Add specific label for aerial
                 Text t = new Text(obs.getX() * scale - 10, obs.getY() * scale, "H:" + (int) obs.getZ() + "m");
                 t.setStyle("-fx-font-weight: bold; -fx-fill: white; -fx-stroke: black; -fx-stroke-width: 0.5px;");
                 layersPane.getChildren().add(t);
 
             } else if (obs.getZ() < -10) {
-                // UNDERWATER (Reef) - Dark Blue/Green
+                // SOUS-MARIN (Récif) - Vert Sombre
                 c.setFill(Color.rgb(0, 100, 0, 0.5));
                 c.setStroke(Color.DARKBLUE);
             } else {
-                // SURFACE (Island) - Gray/Sand
+                // SURFACE (Îlot) - Gris
                 c.setFill(Color.rgb(100, 100, 100, 0.7));
                 c.setStroke(Color.BLACK);
             }
@@ -249,9 +277,13 @@ public class MapPane extends Pane {
         }
     }
 
+    /**
+     * Gère la logique de sélection lors d'un clic sur un actif.
+     * Supporte la sélection multiple via Ctrl.
+     */
     private void handleAssetClick(ActifMobile asset, boolean multiSelect) {
         if (missionTargetMode && onMapClicked != null) {
-            // If in mission target mode, maybe we want to target the asset location?
+            // En mode cible, on clique sur l'actif pour le viser comme destination
             onMapClicked.accept(new double[] { asset.getX(), asset.getY() });
             return;
         }
@@ -269,13 +301,11 @@ public class MapPane extends Pane {
             onSelectionChanged.accept(new ArrayList<>(selectedAssets));
     }
 
-    // --- API for Controller ---
+    // --- API PUBLIQUE pour le Contrôleur ---
 
     public void setScale(double s) {
         this.scale = s;
-        // Resize pane
         this.setPrefSize(SimConfig.WORLD_WIDTH * scale, SimConfig.WORLD_HEIGHT * scale);
-        // Force update positions? We wait for next loop usually, but can force layout.
     }
 
     public void deselectAll() {
@@ -295,10 +325,9 @@ public class MapPane extends Pane {
         selectedAssets.clear();
         if (asset != null)
             selectedAssets.add(asset);
-        // Note: Do not trigger callback here to avoid loops if called from Controller
     }
 
-    // --- Temporary Marker Logic ---
+    // --- Gestion Marqueur Temporaire (Cible Mission) ---
     private double[] temporaryTarget = null;
     private Circle targetMarkerNode = null;
 
@@ -326,7 +355,6 @@ public class MapPane extends Pane {
             assetsPane.getChildren().add(targetMarkerNode);
         }
 
-        // Reposition
         targetMarkerNode.setTranslateX(temporaryTarget[0] * scale);
         targetMarkerNode.setTranslateY(temporaryTarget[1] * scale);
     }
@@ -334,11 +362,6 @@ public class MapPane extends Pane {
     public List<ActifMobile> getSelectedAssets() {
         return new ArrayList<>(selectedAssets);
     }
-
-    // Callbacks are defined at the top of the file
-    // private Consumer<double[]> onMapClicked; // Removed duplicate
-    // private Consumer<double[]> onMapRightClicked; // Removed duplicate
-    // private Consumer<List<ActifMobile>> onSelectionChanged; // Removed duplicate
 
     public void setOnSelectionChanged(Consumer<List<ActifMobile>> cb) {
         this.onSelectionChanged = cb;

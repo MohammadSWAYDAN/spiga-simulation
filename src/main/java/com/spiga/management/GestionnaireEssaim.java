@@ -7,20 +7,14 @@ import java.util.stream.Collectors;
 import java.util.logging.Logger;
 
 /**
- * Gestionnaire de Flotte (Logiciel de Gestion)
- * 
- * CONCEPTS CLES (JAVA BASICS & COLLECTIONS) :
- * 
- * 1. Collections et Genericite (List<ActifMobile>) :
- * - C'est quoi ? Une liste dynamique (taille variable) qui ne peut contenir QUE
- * des objets "ActifMobile" (et ses enfants).
- * - Pourquoi ? Plus sur qu'un tableau ActifMobile[] car on peut
- * ajouter/supprimer facilement.
- * 
- * 2. Programmation Fonctionnelle (Streams) :
- * - C'est quoi ? Traiter des listes comme des flux de donnees.
- * - Ou ? Dans getActifsDisponibles(), on utilise .stream().filter(...) pour
- * trier les drones sans faire de boucles for complexes.
+ * Gestionnaire central de la flotte d'actifs (Design Pattern
+ * Manager/Repository).
+ * <p>
+ * <strong>Rôle :</strong> Maintenir la liste officielle de tous les actifs de
+ * la simulation
+ * et fournir des outils de recherche, de filtrage (Streams) et d'assignation
+ * globale.
+ * </p>
  */
 public class GestionnaireEssaim {
 
@@ -28,17 +22,20 @@ public class GestionnaireEssaim {
     private List<ActifMobile> flotte;
     private static final Logger logger = Logger.getLogger(GestionnaireEssaim.class.getName());
 
+    /**
+     * Crée un nouveau gestionnaire de flotte vide.
+     */
     public GestionnaireEssaim() {
-        // Initialisation : On crée une liste vide prête à recevoir des actifs.
         this.flotte = new ArrayList<>();
     }
 
     /**
-     * Ajoute un actif a la flotte.
+     * Ajoute un actif à la flotte gérée.
+     * <p>
+     * Permet l'ajout polymorphique (Drones, Navires, etc.).
+     * </p>
      * 
-     * Utilise le Polymorphisme : On peut passer un Drone, un Navire, un
-     * Sous-marin...
-     * Tout marche car ils SONT TOUS des ActifMobile.
+     * @param actif L'entité à ajouter.
      */
     public void ajouterActif(ActifMobile actif) {
         flotte.add(actif);
@@ -46,7 +43,9 @@ public class GestionnaireEssaim {
     }
 
     /**
-     * Supprime un actif par son ID.
+     * Supprime un actif du système.
+     * 
+     * @param id Identifiant de l'actif à retirer.
      */
     public void supprimerActif(String id) {
         flotte.removeIf(a -> a.getId().equals(id));
@@ -54,32 +53,45 @@ public class GestionnaireEssaim {
     }
 
     /**
-     * Retourne la flotte complète.
+     * Retourne la liste complète de la flotte.
+     * 
+     * @return Liste mutable des actifs.
      */
     public List<ActifMobile> getFlotte() {
         return flotte;
     }
 
     /**
-     * Retourne les actifs disponibles (AU_SOL avec autonomie > 20%).
-     * Utilisation de <b>Streams</b> pour le filtrage (Programmation fonctionnelle).
+     * Recherche les actifs prêts à partir en mission.
+     * <p>
+     * Critères :
+     * <ul>
+     * <li>État : AU_SOL</li>
+     * <li>Batterie : > 20%</li>
+     * </ul>
+     * Utilise les <strong>Java Streams</strong> pour un filtrage déclaratif.
+     * </p>
+     * 
+     * @return Liste des candidats valides.
      */
     public List<ActifMobile> getActifsDisponibles() {
         if (flotte == null) {
             return new ArrayList<>();
         }
         return flotte.stream()
-                .filter(a -> a.getEtat() == ActifMobile.EtatOperationnel.AU_SOL) // Condition 1
-                .filter(a -> a.getAutonomieActuelle() > a.getAutonomieMax() * 0.2) // Condition 2
-                .collect(Collectors.toList()); // Rassemble les résultats dans une nouvelle liste
+                .filter(a -> a.getEtat() == ActifMobile.EtatOperationnel.AU_SOL)
+                .filter(a -> a.getAutonomieActuelle() > a.getAutonomieMax() * 0.2)
+                .collect(Collectors.toList());
     }
 
     /**
-     * Démarre une mission avec un essaim d'actifs
+     * Lance une mission sur un groupe d'actifs donné.
+     * 
+     * @param mission La mission à démarrer.
+     * @param essaim  La liste des actifs participants.
      */
     public void demarrerMission(Mission mission, List<ActifMobile> essaim) {
         logger.info("🚀 Démarrage mission: " + mission.getTitre());
-        // mission.assign(); // Deprecated simple assign
         mission.assignActifs(essaim);
         for (ActifMobile actif : essaim) {
             actif.assignMission(mission);
@@ -89,7 +101,9 @@ public class GestionnaireEssaim {
     }
 
     /**
-     * Suggère l'actif optimal pour une mission
+     * Suggère l'actif le plus pertinent (ex: meilleure autonomie).
+     * 
+     * @return L'actif optimal ou null si aucun dispo.
      */
     public ActifMobile suggererActifOptimal() {
         return getActifsDisponibles().stream()

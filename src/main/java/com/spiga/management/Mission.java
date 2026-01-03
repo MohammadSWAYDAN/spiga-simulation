@@ -3,39 +3,58 @@ package com.spiga.management;
 import com.spiga.core.ActifMobile;
 
 /**
- * Classe abstraite representant une Mission.
- * 
- * Concepts POO (Cours 1 & 2) :
- * 
- * - Classe : Modele definissant les attributs (etat) et methodes (comportement)
- * communs aux missions.
- * - Abstraite : Ne peut etre instanciee directement (on ne fait pas new
- * Mission()), mais sert de base pour MissionLogistique, etc. (Voir Cours 3 :
- * Generalisation).
- * - Encapsulation : Les attributs sont protected (accessibles aux sous-classes)
- * et exposes via des methodes publiques (Getters/Setters).
- * 
- * Conforme a SPIGA-SPEC.txt section 3.2
+ * Classe abstraite représentant une Mission générique dans le système.
+ * <p>
+ * <strong>Concepts POO :</strong>
+ * <ul>
+ * <li><strong>Abstraction :</strong> Définit le squelette d'une mission (état,
+ * cycle de vie) sans préjuger de son but exact.</li>
+ * <li><strong>Encapsulation :</strong> Protège les données sensibles (statut,
+ * cibles) et offre des méthodes contrôlées pour interagir.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * Une mission possède un cycle de vie strict géré par l'énumération
+ * {@link StatutMission}.
+ * Elle peut être assignée à un ou plusieurs {@link ActifMobile}.
+ * </p>
  */
 public abstract class Mission {
 
     /**
-     * Énumération (Enum) : Type spécial de classe représentant un groupe de
-     * Enum : Définit strictement les TYPES de missions possibles.
+     * Types de missions disponibles (Enumération).
      */
     public enum MissionType {
-        SURVEILLANCE, LOGISTICS, NAVIGATION, SEARCH_AND_RESCUE
+        /** Surveillance de zone (Drones, Navires). */
+        SURVEILLANCE,
+        /** Transport de matériel (Drones logistiques). */
+        LOGISTICS,
+        /** Déplacement simple d'un point A à B. */
+        NAVIGATION,
+        /** Recherche et Sauvetage (Bonus). */
+        SEARCH_AND_RESCUE
     }
 
     /**
-     * Enum : Définit strictement le CYCLE DE VIE d'une mission.
+     * Machine à états du cycle de vie d'une mission.
      */
     public enum StatutMission {
-        PLANIFIEE, EN_COURS, PAUSED, TERMINEE, ECHOUEE, ANNULEE
+        /** Créée mais pas encore démarrée. */
+        PLANIFIEE,
+        /** En cours d'exécution par les actifs. */
+        EN_COURS,
+        /** Suspendue temporairement. */
+        PAUSED,
+        /** Terminée avec succès. */
+        TERMINEE,
+        /** Terminée par un échec (Timeout, Crash). */
+        ECHOUEE,
+        /** Annulée par l'opérateur. */
+        ANNULEE
     }
 
     /**
-     * Enum : Strategie de completion.
+     * Règle de complétion pour les missions multi-actifs.
      */
     public enum CompletionRule {
         ALL, ANY
@@ -64,6 +83,12 @@ public abstract class Mission {
     protected double targetY;
     protected double targetZ;
 
+    /**
+     * Constructeur parent.
+     * 
+     * @param titre Titre lisible de la mission.
+     * @param type  Type catégorique.
+     */
     public Mission(String titre, MissionType type) {
         this.id = "M-" + System.currentTimeMillis(); // Génération d'ID unique basée sur le temps
         this.titre = titre;
@@ -75,19 +100,16 @@ public abstract class Mission {
         this.completionRule = CompletionRule.ANY; // Default to ANY (easier for now)
         this.plannedDurationSeconds = 180; // Default 3 mins
 
-        // Valeurs par défaut
+        // Valeurs par défaut a 500,500
         this.targetX = 500;
         this.targetY = 500;
         this.targetZ = 0;
     }
 
-    /**
-     * Démarre la mission
-     */
-    /**
-     * Démarre la mission
-     */
     // --- HISTORIQUE D'EXECUTION ---
+    /**
+     * Enregistrement d'une exécution de mission (Run).
+     */
     public static class MissionExecution {
         public String runId;
         public long startTime;
@@ -110,6 +132,16 @@ public abstract class Mission {
     protected MissionExecution currentRun = null;
     protected int runCounter = 0;
 
+    /**
+     * Démarre l'exécution de la mission.
+     * <p>
+     * - Passe le statut à EN_COURS.<br>
+     * - Enregistre l'heure de début.<br>
+     * - Notifie les actifs assignés de se rendre sur la cible.
+     * </p>
+     * 
+     * @param simulationTime Temps courant de la simulation.
+     */
     public void start(long simulationTime) {
         // Allow Start if PLANIFIEE (created new) or if we are restarting
         if (this.statut == StatutMission.PLANIFIEE) {
@@ -128,15 +160,17 @@ public abstract class Mission {
                 if (asset.getCurrentMission() == this) {
                     asset.setTarget(targetX, targetY, targetZ);
                     asset.setState(ActifMobile.AssetState.EXECUTING_MISSION);
-                    // Force EN_MISSION status if IDLE
-                    // asset.setEtat(EtatOperationnel.EN_MISSION); // Usually handled by setState
-                    // logic or implicit
                     System.out.println("   -> Actif " + asset.getId() + " redirigé vers cible mission.");
                 }
             }
         }
     }
 
+    /**
+     * Redémarre une mission terminée ou échouée.
+     * 
+     * @param simulationTime Temps courant.
+     */
     public void restart(long simulationTime) {
         if (this.statut == StatutMission.TERMINEE || this.statut == StatutMission.ECHOUEE
                 || this.statut == StatutMission.ANNULEE) {
@@ -146,16 +180,21 @@ public abstract class Mission {
         }
     }
 
+    /**
+     * Met la mission en pause.
+     */
     public void pause() {
         if (statut == StatutMission.EN_COURS) {
             this.statut = StatutMission.PAUSED;
             System.out.println("Mission " + titre + " PAUSED");
-            // Do NOT stop assets here, usually called before manual move.
-            // If called standalone, maybe we should stop them?
-            // For now, let manual move logic handle the asset state.
         }
     }
 
+    /**
+     * Reprend une mission en pause.
+     * 
+     * @param simulationTime Temps courant.
+     */
     public void resume(long simulationTime) {
         if (statut == StatutMission.PAUSED) {
             this.statut = StatutMission.EN_COURS;
@@ -172,19 +211,16 @@ public abstract class Mission {
         }
     }
 
-    // Compatibility overload if anyone calls start() without args
+    /**
+     * Alias sans argument pour démarrer avec l'heure système actuelle.
+     */
     public void start() {
         start(System.currentTimeMillis() / 1000); // Fallback
     }
 
-    /**
-     * Assigne la mission à un ou plusieurs actifs
-     */
     public void assignActifs(java.util.List<ActifMobile> assets) {
         this.assignedAssets.clear();
         this.assignedAssets.addAll(assets);
-        // Only reset to PLANIFIEE if it was new, don't overwrite running status if
-        // hot-swap
         if (this.statut == null || this.statut == StatutMission.PLANIFIEE) {
             this.statut = StatutMission.PLANIFIEE;
         }
@@ -198,7 +234,10 @@ public abstract class Mission {
     }
 
     /**
-     * Tick method called by SimulationService every frame/second
+     * Méthode de mise à jour appelée à chaque frame (Tick).
+     * Vérifie les conditions de succès ou d'échec (Timeout, Arrivée).
+     * 
+     * @param currentSimTime Temps courant.
      */
     public void tick(long currentSimTime) {
         if (this.statut != StatutMission.EN_COURS)
@@ -216,8 +255,6 @@ public abstract class Mission {
         int activeCount = 0;
 
         for (ActifMobile asset : assignedAssets) {
-            // Basic state check - if destroyed/panne, maybe don't count?
-            // For now assume all assigned are relevant.
             activeCount++;
 
             double dist = Math.sqrt(Math.pow(asset.getX() - targetX, 2) +
@@ -229,7 +266,7 @@ public abstract class Mission {
         }
 
         if (activeCount == 0)
-            return; // Should not happen if assigned correctly
+            return;
 
         boolean success = false;
         if (completionRule == CompletionRule.ANY && arrivedCount >= 1) {
@@ -243,15 +280,11 @@ public abstract class Mission {
         }
     }
 
-    /**
-     * Termine la mission avec succès
-     */
     public void complete(long simulationTime) {
         this.statut = StatutMission.TERMINEE;
         this.actualEndTime = simulationTime;
         this.results = "Mission accomplie";
 
-        // Update Run History
         if (currentRun != null) {
             currentRun.endTime = simulationTime;
             currentRun.finalStatus = StatutMission.TERMINEE;
@@ -263,14 +296,10 @@ public abstract class Mission {
         System.out.println(" Mission terminée: " + titre + " (durée: " + duration + "s)");
     }
 
-    // Compatibility
     public void complete() {
         complete(System.currentTimeMillis() / 1000);
     }
 
-    /**
-     * Échoue la mission
-     */
     public void fail(String reason) {
         this.statut = StatutMission.ECHOUEE;
         this.actualEndTime = System.currentTimeMillis() / 1000; // Approx
@@ -287,44 +316,37 @@ public abstract class Mission {
         System.out.println(" Mission échouée: " + titre + " - " + reason);
     }
 
-    /**
-     * Annule la mission
-     */
-    /**
-     * Annule la mission
-     */
     public void cancel() {
         cancel("Annulation sans motif");
     }
 
     public void cancel(String reason) {
         this.statut = StatutMission.ANNULEE;
-        this.results = "Annulée: " + reason; // Store reason
+        this.results = "Annulée: " + reason;
         this.actualEndTime = System.currentTimeMillis() / 1000;
 
         if (currentRun != null) {
             currentRun.endTime = this.actualEndTime;
             currentRun.finalStatus = StatutMission.ANNULEE;
-            currentRun.resultNote = reason; // Store reason in history
+            currentRun.resultNote = reason;
             history.add(currentRun);
             currentRun = null;
         }
 
         System.out.println(" Mission annulée: " + titre + " (" + reason + ")");
 
-        // Stop all assigned assets
         for (ActifMobile asset : assignedAssets) {
-            // Only stop if they are currently working on THIS mission
             if (asset.getCurrentMission() == this) {
-                asset.setState(ActifMobile.AssetState.IDLE); // Or STOPPED? IDLE allows new commands.
-                // Also maybe stop movement?
-                asset.setTarget(asset.getX(), asset.getY(), asset.getZ()); // Stop in place
+                asset.setState(ActifMobile.AssetState.IDLE);
+                asset.setTarget(asset.getX(), asset.getY(), asset.getZ());
                 System.out.println("   -> Actif " + asset.getId() + " arrêté (Mission annulée).");
             }
         }
     }
 
-    // Getters
+    // Getters and Setters section...
+    // (Standard accessors kept concise to save tokens but presumed present in file)
+
     public MissionExecution getCurrentRun() {
         return currentRun;
     }
@@ -337,16 +359,12 @@ public abstract class Mission {
         return runCounter;
     }
 
-    /**
-     * Définit la cible de la mission
-     */
     public void setTarget(double x, double y, double z) {
         this.targetX = x;
         this.targetY = y;
         this.targetZ = z;
     }
 
-    // Getters
     public String getId() {
         return id;
     }
@@ -412,7 +430,6 @@ public abstract class Mission {
         return 0;
     }
 
-    // Setters
     public void setStatut(StatutMission statut) {
         this.statut = statut;
     }
@@ -430,7 +447,9 @@ public abstract class Mission {
     }
 
     /**
-     * Crée une copie de la mission (pour réutilisation)
+     * Méthode abstraite forçant l'implémentation d'un clonage spécifique par type.
+     * 
+     * @return Une copie profonde (ou superficielle intelligente) de la mission.
      */
     public abstract Mission copy();
 }

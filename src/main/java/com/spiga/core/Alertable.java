@@ -1,23 +1,21 @@
 package com.spiga.core;
 
 /**
- * Interface Alertable.
+ * Interface définissant la capacité à émettre des notifications d'état
+ * critique.
  * <p>
- * <b>Concepts :</b>
- * <ul>
- * <li><b>Interface Segregation</b> : Cette interface est spécifique aux
- * alertes.
- * Un objet peut être {@code Deplacable} sans être forcément {@code Alertable}
- * (bien que dans ce projet ActifMobile implémente tout).</li>
- * </ul>
- * 
- * Conforme à SPIGA-SPEC.txt section 1.3
+ * Permet au système de surveillance (Monitoring) de recevoir des alertes
+ * standardisées
+ * de la part des actifs, quel que soit leur type.
+ * </p>
  */
 public interface Alertable {
+
     /**
-     * Notifie un état critique
-     * 
-     * @param typeAlerte le type d'alerte (panne, batterie faible, etc.)
+     * Notifie le système d'un état critique nécessitant une attention immédiate.
+     *
+     * @param typeAlerte Description courte de l'alerte (ex: "BATTERY_LOW",
+     *                   "ERROR_SENSOR").
      */
     void notifierEtatCritique(String typeAlerte);
 }

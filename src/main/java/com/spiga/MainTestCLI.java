@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 /**
+<<<<<<< HEAD
  * MainTestCLI - Interface Console SPIGA
  *
  * Interface Console (CLI) permettant d'effectuer toutes les operations
@@ -40,6 +41,60 @@ public class MainTestCLI {
 
     /** Liste de toutes les missions creees pour la gestion interactive. */
     private static List<Mission> allMissions = new ArrayList<>();
+=======
+ * Interface en Ligne de Commande (CLI) pour la validation technique.
+ * <p>
+ * Cette classe permet de tester isolément la logique métier de la simulation
+ * sans passer
+ * par l'interface graphique JavaFX complète (bien que le toolkit soit
+ * initialisé pour les timers).
+ * Elle propose plusieurs scénarios prédéfinis pour valider les comportements
+ * des entités :
+ * </p>
+ * <ul>
+ * <li>Missions et déplacements manuels.</li>
+ * <li>Gestion de la batterie et recharge.</li>
+ * <li>Respect des contraintes physiques (altitude, profondeur).</li>
+ * <li>Gestion des zones interdites (refus ou évitement).</li>
+ * <li>Impact des conditions météorologiques (vent, pluie, vagues).</li>
+ * </ul>
+ *
+ * @author Equipe SPIGA
+ * @version 1.0
+ */
+public class MainTestCLI {
+
+    /** Le gestionnaire central de l'essaim (flotte d'actifs). */
+    private static GestionnaireEssaim gestionnaire;
+
+    /**
+     * Le service de simulation responsable de la boucle temporelle et de la
+     * physique.
+     */
+    private static SimulationService service;
+
+    /** Scanner pour la saisie utilisateur dans la console. */
+    private static Scanner scanner;
+
+    /**
+     * Indicateur de l'état d'initialisation du toolkit JavaFX (nécessaire pour
+     * {@code AnimationTimer}).
+     */
+    private static boolean isJavaFxInitialized = false;
+
+    /**
+     * Point d'entrée du mode CLI.
+     * <p>
+     * Initialise l'environnement (JavaFX, Services), lance la boucle de menu
+     * principale,
+     * et gère la sélection des scénarios.
+     * </p>
+     *
+     * @param args Arguments de ligne de commande (non utilisés).
+     */
+    public static void main(String[] args) {
+        System.out.println("INITIALISATION DE L'ENVIRONNEMENT DE TEST...");
+>>>>>>> 8d792a7f2571e1788f23b9efa0d3e769e349ec7d
 
     /** Compteur auto-increment pour generer les IDs d'actifs. */
     private static int assetCounter = 1;
@@ -123,6 +178,7 @@ public class MainTestCLI {
         System.exit(0);
     }
 
+<<<<<<< HEAD
     // ==================================================================================
     // MENU PRINCIPAL
     // ==================================================================================
@@ -130,6 +186,10 @@ public class MainTestCLI {
     /**
      * Affiche le menu principal avec les options disponibles.
      * Options : Gestion actifs, Missions, Etats, Simulation, Meteo, Scenarios.
+=======
+    /**
+     * Affiche le menu principal des scénarios disponibles.
+>>>>>>> 8d792a7f2571e1788f23b9efa0d3e769e349ec7d
      */
     private static void afficherMenuPrincipal() {
         System.out.println("\n============== MENU PRINCIPAL ==============");
@@ -143,6 +203,7 @@ public class MainTestCLI {
         System.out.println("=============================================");
     }
 
+<<<<<<< HEAD
     // ==================================================================================
     // 1. GESTION DES ACTIFS
     // ==================================================================================
@@ -1102,6 +1163,15 @@ public class MainTestCLI {
     // ==================================================================================
     // CODE ORIGINAL - SCENARIOS ET BOUCLE
     // ==================================================================================
+=======
+    /**
+     * Réinitialise complètement l'état de la simulation.
+     * <p>
+     * Vide la flotte, supprime les zones et obstacles, et remet la météo à zéro
+     * pour garantir un environnement propre avant chaque scénario.
+     * </p>
+     */
+>>>>>>> 8d792a7f2571e1788f23b9efa0d3e769e349ec7d
     private static void resetSimulation() {
         gestionnaire.getFlotte().clear();
         service.reset();
@@ -1113,10 +1183,25 @@ public class MainTestCLI {
         System.out.println(">> Simulation Reset (Flotte vide, Météo reset).");
     }
 
+    /**
+     * Interface fonctionnelle pour injecter de la logique personnalisée ("Hook")
+     * à chaque étape de la simulation (tick).
+     */
     private interface SimHook {
+        /**
+         * Exécuté à chaque pas de temps de la simulation.
+         *
+         * @param time    Le temps écoulé en secondes depuis le début du scénario.
+         * @param service Le service de simulation actif.
+         */
         void tick(double time, SimulationService service);
     }
 
+    /**
+     * Configure et lance le scénario choisi par l'utilisateur.
+     *
+     * @param choix L'identifiant du scénario (1-5).
+     */
     private static void lancerScenario(int choix) {
         resetSimulation();
         long dureeSimuSeconds = 20;
@@ -1150,7 +1235,7 @@ public class MainTestCLI {
         }
 
         System.out.println("\n--- DÉBUT DE LA SIMULATION (" + dureeSimuSeconds + "s simulées) ---\n");
-        // default log interval = 1s
+        // intervalle de log par défaut = 1s
         int logInterval = 1;
         if (choix == 4 || choix == 5)
             logInterval = 5;
@@ -1161,9 +1246,17 @@ public class MainTestCLI {
         scanner.nextLine();
     }
 
+    /**
+     * Exécute la boucle de simulation principale pour une durée donnée.
+     *
+     * @param dureeSimuSeconds   Durée totale à simuler en secondes.
+     * @param hook               Le hook logique spécifique au scénario.
+     * @param logIntervalSeconds Intervalle entre chaque affichage des logs dans la
+     *                           console.
+     */
     private static void executerBoucle(long dureeSimuSeconds, SimHook hook, int logIntervalSeconds) {
         long nanoTime = 0;
-        long stepNano = 16_666_667; // ~16ms
+        long stepNano = 16_666_667; // ~16ms (60 FPS)
         double dtSeconds = stepNano / 1e9;
         long totalSteps = (dureeSimuSeconds * 1_000_000_000L) / stepNano;
         long stepsPerLog = (long) (logIntervalSeconds / dtSeconds);
@@ -1182,6 +1275,11 @@ public class MainTestCLI {
         }
     }
 
+    /**
+     * Affiche l'état courant de tous les actifs de la flotte dans la console.
+     *
+     * @param time Le temps actuel de la simulation.
+     */
     private static void afficherLogsFlotte(double time) {
         String msgTime = String.format("t=%04.1fs", time);
         for (ActifMobile a : gestionnaire.getFlotte()) {
@@ -1208,9 +1306,16 @@ public class MainTestCLI {
     // IMPLEMENTATION DES SCÉNARIOS
     // ==================================================================================
 
-    // ----------------------------------------------------------------------------------
-    // SCÉNARIO 1 : Mission + Déplacement manuel + Relance
-    // ----------------------------------------------------------------------------------
+    /**
+     * SCÉNARIO 1 : Mission + Déplacement Manuel + Relance.
+     * <p>
+     * Teste la capacité d'un drone à interrompre une mission pour une commande
+     * manuelle,
+     * puis à reprendre sa mission initiale correctement.
+     * </p>
+     *
+     * @return Le hook de simulation pour ce scénario.
+     */
     private static SimHook scenario1_MissionManuelRelance() {
         System.out.println(">> [S1] INIT: Création Drone + Mission PLANIFIEE vers (500,500,100)");
 
@@ -1263,9 +1368,16 @@ public class MainTestCLI {
         };
     }
 
-    // ----------------------------------------------------------------------------------
-    // SCÉNARIO 2 : Batterie et Recharge
-    // ----------------------------------------------------------------------------------
+    /**
+     * SCÉNARIO 2 : Batterie et Recharge.
+     * <p>
+     * Simule une batterie vide, vérifie l'alerte critique et le retour automatique
+     * à la base,
+     * puis teste la procédure de recharge.
+     * </p>
+     *
+     * @return Le hook de simulation pour ce scénario.
+     */
     private static SimHook scenario2_BatterieRecharge() {
         System.out.println(">> [S2] INIT: Drone avec Batterie 100%.");
         DroneReconnaissance d1 = new DroneReconnaissance("Drone-Bat", 0, 0, 100);
@@ -1304,9 +1416,16 @@ public class MainTestCLI {
         };
     }
 
-    // ----------------------------------------------------------------------------------
-    // SCÉNARIO 3 : Contraintes physiques et zones interdites (Z et Asset Types)
-    // ----------------------------------------------------------------------------------
+    /**
+     * SCÉNARIO 3 : Contraintes physiques et zones interdites (Z et Types d'Actifs).
+     * <p>
+     * Vérifie que les actifs respectent leurs contraintes physiques (ex: un bateau
+     * reste en surface Z=0).
+     * Permet à l'utilisateur de choisir le sous-scénario spécifique.
+     * </p>
+     *
+     * @return Le hook de simulation pour ce scénario.
+     */
     private static SimHook scenario3_ContraintesPhysiques() {
         System.out.println("\n--- SCÉNARIO 3 : VALIDATION CONTRAINTES ---");
         System.out.println("1 - Drone Reconnaissance : Cible Z=200 -> Force à 150m (Clamped)");
@@ -1373,9 +1492,15 @@ public class MainTestCLI {
         };
     }
 
-    // ----------------------------------------------------------------------------------
-    // SCÉNARIO 4 : Définir Zone Interdite
-    // ----------------------------------------------------------------------------------
+    /**
+     * SCÉNARIO 4 : Définir Zone Interdite (No-Fly Zone).
+     * <p>
+     * Teste le comportement des drones face à une zone interdite :
+     * autorisation (si drone reco), refus, ou contournement.
+     * </p>
+     *
+     * @return Le hook de simulation pour ce scénario.
+     */
     private static SimHook scenario4_ZonesInterdites() {
         // 0. Clean Logs - Mute standard INFO logs to avoid noise
         java.util.logging.Logger.getLogger("com.spiga").setLevel(java.util.logging.Level.WARNING);
@@ -1460,9 +1585,16 @@ public class MainTestCLI {
         };
     }
 
-    // ----------------------------------------------------------------------------------
-    // SCÉNARIO 5 : Météo (Impact Vitesse/Conso)
-    // ----------------------------------------------------------------------------------
+    /**
+     * SCÉNARIO 5 : Météo (Impact Vitesse/Conso).
+     * <p>
+     * Teste l'influence du vent, de la pluie et des vagues sur la vitesse et la
+     * consommation
+     * des différents types d'actifs.
+     * </p>
+     *
+     * @return Le hook de simulation pour ce scénario.
+     */
     private static SimHook scenario5_Meteo() {
         System.out.println("\n==================================================================================");
         System.out.println(" SCÉNARIO 5 : IMPACT MÉTÉO (Vent, Pluie, Vagues)");

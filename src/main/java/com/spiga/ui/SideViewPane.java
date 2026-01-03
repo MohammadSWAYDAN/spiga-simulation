@@ -23,47 +23,60 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Vue de Profil (Side View) basée sur des Noeuds JavaFX.
- * Structure: BorderPane
- * - Center: Pane de dessin (Fond, Zones, Actifs)
- * - Bottom: Label d'état (Coordonnées sélection)
- * 
- * Axe X : Position X du monde (0..WORLD_WIDTH)
- * Axe Y (Ecran) : Altitude Z du monde (+MaxZ .. -MaxZ)
+ * Vue de Profil (Side View) basée sur des Nœuds JavaFX.
+ * <p>
+ * Offre une visualisation en coupe (Axe X et Axe Z) pour apprécier l'altitude
+ * et la profondeur.
+ * Idéal pour visualiser les sous-marins et les drones aériens simultanément.
+ * Structure: {@link BorderPane}
+ * <ul>
+ * <li><b>Center:</b> Pane de dessin (Fond Ciel/Mer, Zones, Obstacles,
+ * Actifs)</li>
+ * <li><b>Bottom:</b> Label d'état (Coordonnées sélection)</li>
+ * </ul>
+ * </p>
+ *
+ * @author Equipe SPIGA
+ * @version 1.0
  */
 public class SideViewPane extends BorderPane {
 
-    private final Pane drawingPane = new Pane(); // Inner Pane for drawing layers
+    /** Conteneur principal des calques de dessin. */
+    private final Pane drawingPane = new Pane();
+
+    // Calques superposés
     private final Pane backgroundLayer = new Pane();
     private final Pane zonesLayer = new Pane();
-    private final Pane obstaclesLayer = new Pane(); // New Layer
+    private final Pane obstaclesLayer = new Pane();
     private final Pane assetsLayer = new Pane();
 
     private final Label coordLabel = new Label("Séléction: Aucune");
 
-    // Config Viewport
-    private double minZ = -200; // Profondeur max
-    private double maxZ = 200; // Altitude max
-    private double worldWidth = SimConfig.WORLD_WIDTH; // 1000m
+    // Config Viewport (Fenêtre de vue)
+    private double minZ = -200; // Profondeur max affichée
+    private double maxZ = 200; // Altitude max affichée
+    private double worldWidth = SimConfig.WORLD_WIDTH;
 
-    private List<Obstacle> cachedObstacles = null; // Cache for optimization
+    private List<Obstacle> cachedObstacles = null; // Cache pour optimisation
     private Map<String, javafx.scene.Node> assetNodes = new HashMap<>();
 
+    /**
+     * Constructeur. Initialise les couches et l'arrière-plan statique.
+     */
     public SideViewPane() {
         this.setStyle("-fx-background-color: white; -fx-border-color: #ccc;");
 
-        // Assemble Top/Center Layers
-        // We use drawingPane to hold the layers so they scale together
+        // Assemblage des calques dans l'ordre de profondeur (Painters Algorithm)
         drawingPane.getChildren().addAll(backgroundLayer, zonesLayer, obstaclesLayer, assetsLayer);
         this.setCenter(drawingPane);
 
-        // Bottom Bar
+        // Barre d'état inférieure
         coordLabel.setStyle(
                 "-fx-padding: 5px; -fx-background-color: #f4f4f4; -fx-border-color: #ddd; -fx-border-width: 1 0 0 0; -fx-font-family: 'Consolas'; -fx-font-weight: bold;");
         coordLabel.setMaxWidth(Double.MAX_VALUE);
         this.setBottom(coordLabel);
 
-        // Listeners for Resize to redraw background
+        // Redessiner l'arrière-plan lors du redimensionnement
         drawingPane.widthProperty().addListener(e -> {
             drawBackground();
             renderObstacles();
@@ -74,6 +87,9 @@ public class SideViewPane extends BorderPane {
         });
     }
 
+    /**
+     * Dessine l'environnement statique (Ciel, Mer, Lignes limites).
+     */
     private void drawBackground() {
         backgroundLayer.getChildren().clear();
         double w = drawingPane.getWidth();
@@ -81,28 +97,28 @@ public class SideViewPane extends BorderPane {
         if (w <= 0 || h <= 0)
             return;
 
-        // Calculate Y position of Z=0 (Sea Level)
+        // Position Y du niveau de la mer (Z=0)
         double seaLevelY = zToScreenY(0);
 
-        // 1. SKY (Above Sea Level)
+        // 1. CIEL (Au-dessus de 0) - Dégradé Bleu Clair
         Rectangle sky = new Rectangle(0, 0, w, seaLevelY);
         sky.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
                 new Stop(0, Color.web("#87CEEB")), new Stop(1, Color.web("#E0F7FA"))));
         backgroundLayer.getChildren().add(sky);
 
-        // 2. SEA (Below Sea Level)
+        // 2. MER (En-dessous de 0) - Dégradé Bleu Foncé
         Rectangle sea = new Rectangle(0, seaLevelY, w, h - seaLevelY);
         sea.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
                 new Stop(0, Color.web("#006994")), new Stop(1, Color.web("#001e33"))));
         backgroundLayer.getChildren().add(sea);
 
-        // 3. Sea Level Line
+        // 3. Ligne de Surface (Z=0)
         Line line = new Line(0, seaLevelY, w, seaLevelY);
         line.setStroke(Color.WHITE);
         line.getStrokeDashArray().addAll(5d, 5d);
         backgroundLayer.getChildren().add(line);
 
-        // 4. Submarine Limit Line (-150m)
+        // 4. Limite Sous-Marins (-150m)
         double subLimitY = zToScreenY(-150);
         Line limitSub = new Line(0, subLimitY, w, subLimitY);
         limitSub.setStroke(Color.RED);
@@ -115,7 +131,7 @@ public class SideViewPane extends BorderPane {
         txtLimit.setStyle("-fx-font-size: 10px; -fx-opacity: 0.7;");
         backgroundLayer.getChildren().add(txtLimit);
 
-        // 5. Air Limit Line (+150m)
+        // 5. Plafond Aérien (+150m)
         double airLimitY = zToScreenY(150);
         Line limitAir = new Line(0, airLimitY, w, airLimitY);
         limitAir.setStroke(Color.RED);
@@ -128,7 +144,7 @@ public class SideViewPane extends BorderPane {
         txtAirLimit.setStyle("-fx-font-size: 10px; -fx-opacity: 0.7;");
         backgroundLayer.getChildren().add(txtAirLimit);
 
-        // Labels
+        // Labels Informatifs
         Text txtAir = new Text(10, 15, "AIR (+200m)");
         txtAir.setFill(Color.DARKBLUE);
         backgroundLayer.getChildren().add(txtAir);
@@ -138,24 +154,27 @@ public class SideViewPane extends BorderPane {
         backgroundLayer.getChildren().add(txtWater);
     }
 
+    /**
+     * Met à jour la vue avec les données dynamiques de la simulation.
+     */
     public void update(List<ActifMobile> assets, List<RestrictedZone> zones, List<Obstacle> obstacles,
             ActifMobile selectedAsset) {
         if (drawingPane.getWidth() <= 0 || drawingPane.getHeight() <= 0)
             return;
 
-        // 1. Update Zones (Projected)
+        // 1. Mise à jour des Zones Interdites (Projection Latérale)
         zonesLayer.getChildren().clear();
         if (zones != null) {
             for (RestrictedZone z : zones) {
-                // Bounds
+                // Bornes X
                 double xMin = z.getX() - z.getRadius();
                 double xMax = z.getX() + z.getRadius();
 
-                // Z min/max
+                // Bornes Z
                 double zMin = z.getMinZ();
                 double zMax = z.getMaxZ();
 
-                // Screen Coords
+                // Conversion Écran
                 double screenX = xToScreenX(Math.max(0, xMin));
                 double screenW = xToScreenX(Math.min(worldWidth, xMax)) - screenX;
 
@@ -178,13 +197,13 @@ public class SideViewPane extends BorderPane {
             }
         }
 
-        // 1.5 Update Obstacles (Optimized)
+        // 2. Mise à jour Optimisée des Obstacles
         if (obstacles != cachedObstacles) {
             cachedObstacles = obstacles;
             renderObstacles();
         }
 
-        // 2. Update Assets
+        // 3. Mise à jour des Actifs Mobiles
         List<String> currentIds = assets.stream().map(ActifMobile::getId).collect(Collectors.toList());
 
         for (ActifMobile asset : assets) {
@@ -195,25 +214,25 @@ public class SideViewPane extends BorderPane {
                 assetNodes.put(asset.getId(), node);
             }
 
-            // Position
+            // Positionnement
             double sx = xToScreenX(asset.getX());
             double sy = zToScreenY(asset.getZ());
 
             node.setTranslateX(sx);
             node.setTranslateY(sy);
 
-            // Highlight Selection
+            // Mise en valeur Sélection
             Group g = (Group) node;
             if (asset == selectedAsset) {
                 g.setOpacity(1.0);
                 g.toFront();
-                // Find label in group and bold it?
+                // Possibilité d'agrandir ou de changer la couleur ici
             } else {
                 g.setOpacity(0.9);
             }
         }
 
-        // Remove Dead Nodes
+        // Nettoyage des noeuds orphelins
         List<String> toRemove = assetNodes.keySet().stream()
                 .filter(id -> !currentIds.contains(id))
                 .collect(Collectors.toList());
@@ -223,9 +242,9 @@ public class SideViewPane extends BorderPane {
             assetNodes.remove(id);
         });
 
-        // 3. Update Status Label
+        // 4. Mise à jour Label Statut
         if (selectedAsset != null) {
-            coordLabel.setText(String.format("SELECTED: %s   |   X: %.1f   Y: %.1f   Z: %.1f",
+            coordLabel.setText(String.format("SÉLECTION: %s   |   X: %.1f   Y: %.1f   Z: %.1f",
                     selectedAsset.getId(), selectedAsset.getX(), selectedAsset.getY(), selectedAsset.getZ()));
             coordLabel.setStyle(
                     "-fx-padding: 5px; -fx-background-color: #e0f7fa; -fx-border-color: #0097a7; -fx-border-width: 1 0 0 0; -fx-font-family: 'Consolas'; -fx-font-weight: bold;");
@@ -236,30 +255,31 @@ public class SideViewPane extends BorderPane {
         }
     }
 
+    /**
+     * Crée le nœud graphique représentant un actif dans la vue de profil.
+     */
     private javafx.scene.Node createAssetNode(ActifMobile asset) {
-        // Create Group: Shape + Label
         Group group = new Group();
-
         javafx.scene.shape.Shape shape;
 
         if (asset instanceof com.spiga.core.ActifAerien) {
-            // Drone: Triangle
+            // Drone: Triangle pointant vers la droite
             shape = new Polygon(-6, 6, 6, 6, 0, -6);
             shape.setFill(Color.RED);
             shape.setStroke(Color.BLACK);
         } else if (asset instanceof com.spiga.core.VehiculeSousMarin) {
-            // Sub: Rectangle/Rounded
+            // Sous-Marin: Rectangle Arrondi Jaune
             Rectangle r = new Rectangle(-8, -4, 16, 8);
             r.setArcWidth(6);
             r.setArcHeight(6);
             r.setFill(Color.YELLOW);
             r.setStroke(Color.BLACK);
-            // Center correction
+            // Centrage
             r.setX(-8);
             r.setY(-4);
             shape = r;
         } else {
-            // Boat: Box
+            // Bateau: Rectangle Orange
             Rectangle r = new Rectangle(-6, -3, 12, 6);
             r.setX(-6);
             r.setY(-3);
@@ -270,12 +290,12 @@ public class SideViewPane extends BorderPane {
 
         group.getChildren().add(shape);
 
-        // Label with Background
+        // Label Nom (Petit, sur fond semi-transparent)
         Label nameLabel = new Label(asset.getId());
         nameLabel.setStyle(
                 "-fx-background-color: rgba(0,0,0,0.5); -fx-text-fill: white; -fx-font-size: 9px; -fx-padding: 1px 3px; -fx-background-radius: 3;");
-        nameLabel.setTranslateX(8); // Offset right
-        nameLabel.setTranslateY(-8); // Offset up
+        nameLabel.setTranslateX(8); // Décalage Droite
+        nameLabel.setTranslateY(-8); // Décalage Haut
         nameLabel.setMouseTransparent(true);
 
         group.getChildren().add(nameLabel);
@@ -283,13 +303,16 @@ public class SideViewPane extends BorderPane {
         return group;
     }
 
-    // Coordinate Transforms
+    // --- Transformations de Coordonnées ---
+
     private double xToScreenX(double worldX) {
         return (worldX / worldWidth) * drawingPane.getWidth();
     }
 
     private double zToScreenY(double worldZ) {
-        // Use drawingPane height
+        // Z positif (Haut) -> Y petit (Haut écran). Z négatif (Bas) -> Y grand (Bas
+        // écran)
+        // Mapping: [maxZ, minZ] -> [0, height]
         double range = maxZ - minZ;
         double pct = (maxZ - worldZ) / range;
         return pct * drawingPane.getHeight();
@@ -304,7 +327,7 @@ public class SideViewPane extends BorderPane {
             return;
 
         for (Obstacle obs : cachedObstacles) {
-            // Project onto X-Z Plane
+            // Projection du volume sphérique sur le plan X-Z -> Ellipse
             double r = obs.getRadius();
             double xMin = obs.getX() - r;
             double xMax = obs.getX() + r;
@@ -326,15 +349,15 @@ public class SideViewPane extends BorderPane {
                 oval.setRadiusY(screenH / 2);
 
                 if (obs.getZ() > 10) {
-                    // Aerial/Mountain (Brown mostly)
+                    // Montagne / Aérien
                     oval.setFill(Color.rgb(139, 69, 19, 0.4));
                     oval.setStroke(Color.DARKRED);
                 } else if (obs.getZ() < -10) {
-                    // Underwater (Green/Blue)
+                    // Récif / Sous-marin
                     oval.setFill(Color.rgb(0, 100, 0, 0.4));
                     oval.setStroke(Color.DARKBLUE);
                 } else {
-                    // Surface (Gray)
+                    // Surface (Îlot)
                     oval.setFill(Color.rgb(100, 100, 100, 0.5));
                     oval.setStroke(Color.BLACK);
                 }

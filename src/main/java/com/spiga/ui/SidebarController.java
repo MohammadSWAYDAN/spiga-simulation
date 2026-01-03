@@ -11,31 +11,54 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Controleur de la Barre Laterale (Details).
+ * Contrôleur de la Barre Latérale (Panneau de Droite).
+ * <p>
+ * Ce contrôleur gère l'affichage des informations détaillées de l'actif
+ * sélectionné,
+ * la liste de tous les actifs présents dans l'essaim, ainsi que le journal des
+ * alertes
+ * et événements importants. Il permet aussi le contrôle direct des missions
+ * (Pause/Reprise).
+ * </p>
+ *
+ * @author Equipe SPIGA
+ * @version 1.0
  */
 public class SidebarController {
 
+    // --- Composants UI (Injectés via FXML) ---
+
+    /** Liste affichant les identifiants de tous les actifs de la flotte. */
     @FXML
     private ListView<String> listAssets;
+
     @FXML
     private Label lblId;
     @FXML
     private Label lblType;
     @FXML
     private Label lblState;
+
+    /** Barre de progression indiquant le niveau de batterie. */
     @FXML
     private ProgressBar progressBattery;
     @FXML
     private Label lblBatteryPct;
+
     @FXML
     private Label lblPosition;
     @FXML
-    private ComboBox<com.spiga.management.Mission> cmbMissions;
-    private boolean isUpdatingDetails = false;
-    @FXML
     private Label lblSpeed;
+
+    /** Liste déroulante des missions associées à l'actif sélectionné. */
+    @FXML
+    private ComboBox<com.spiga.management.Mission> cmbMissions;
+
+    /** Liste des alertes et notifications système (log visuel). */
     @FXML
     private ListView<String> listAlerts;
+
+    // --- Boutons d'Action ---
     @FXML
     private Button btnRecharge;
     @FXML
@@ -45,36 +68,62 @@ public class SidebarController {
     @FXML
     private Button btnStopMission;
 
+    // --- État Interne ---
+    private boolean isUpdatingDetails = false;
     private boolean isUpdatingSelection = false;
     private GestionnaireEssaim gestionnaire;
     private ActifMobile selectedAsset;
     private MainController mainController;
 
+    /**
+     * Ajoute un message d'alerte ou de notification dans le journal latéral.
+     * Le message est ajouté en haut de la liste. La liste conserve les 50 derniers
+     * messages.
+     *
+     * @param message Le texte de l'alerte à afficher.
+     */
     public void addAlert(String message) {
         if (listAlerts != null) {
             Platform.runLater(() -> {
-                listAlerts.getItems().add(0, message); // Add to top
+                listAlerts.getItems().add(0, message); // Ajout en tête
                 if (listAlerts.getItems().size() > 50) {
-                    listAlerts.getItems().remove(50); // Keep last 50
+                    listAlerts.getItems().remove(50); // Garder les 50 derniers
                 }
             });
         }
     }
 
+    /**
+     * Définit le gestionnaire d'essaim et initialise la liste des actifs.
+     *
+     * @param gestionnaire L'instance du gestionnaire métier.
+     */
     public void setGestionnaire(GestionnaireEssaim gestionnaire) {
         this.gestionnaire = gestionnaire;
-        refreshList(); // Initial populate
+        refreshList(); // Premier remplissage
     }
 
+    /**
+     * Référence vers le contrôleur principal pour la communication
+     * inter-contrôleurs.
+     *
+     * @param controller L'instance de {@link MainController}.
+     */
     public void setMainController(MainController controller) {
         this.mainController = controller;
     }
 
+    /**
+     * Initialisation du contrôleur (appelé par JavaFX).
+     * Configure les écouteurs d'événements, les convertisseurs de cellules
+     * (ListCell)
+     * et les actions des boutons.
+     */
     @FXML
     public void initialize() {
         if (btnRecharge != null) {
             btnRecharge.setOnAction(e -> handleRecharge());
-            btnRecharge.setDisable(true); // Initially disabled
+            btnRecharge.setDisable(true);
         }
         if (btnStartMission != null) {
             btnStartMission.setOnAction(e -> handleStartMission());
@@ -83,37 +132,35 @@ public class SidebarController {
             btnStopMission.setOnAction(e -> handleStopMission());
         }
 
+        // Configuration de la ComboBox des Missions (Affichage du Titre uniquement)
         if (cmbMissions != null) {
-            // Setup Converter
             cmbMissions.setConverter(new javafx.util.StringConverter<com.spiga.management.Mission>() {
                 @Override
                 public String toString(com.spiga.management.Mission m) {
-                    if (m == null)
-                        return "Aucune";
-                    return m.getTitre();
+                    return (m == null) ? "Aucune" : m.getTitre();
                 }
 
                 @Override
                 public com.spiga.management.Mission fromString(String string) {
-                    return null; // Not needed
+                    return null; // Non utilisé (Saisie impossible)
                 }
             });
 
-            // Setup Listener
+            // Écouteur de changement de mission active
             cmbMissions.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
                 if (isUpdatingDetails || newVal == null || selectedAsset == null)
                     return;
-
-                // User Selected a new mission from dropdown
+                // L'utilisateur change la mission prioritaire
                 selectedAsset.promoteMission(newVal);
-                updateDetails(selectedAsset); // Refresh to show new Active state
+                updateDetails(selectedAsset);
             });
         }
 
+        // Configuration de la Liste des Actifs (Sélection multiple + Bouton Supprimer)
         if (listAssets != null) {
             listAssets.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
-            // Selection Listener (Sidebar -> Map)
+            // Synchronisation Sélection Liste -> Carte
             listAssets.getSelectionModel().getSelectedItems()
                     .addListener((javafx.collections.ListChangeListener.Change<? extends String> c) -> {
                         if (isUpdatingSelection)
@@ -128,7 +175,7 @@ public class SidebarController {
                         }
                     });
 
-            // Custom Cell Factory for Delete Button
+            // Cell Factory Personnalisée (Nom + Bouton 'X' pour suppression)
             listAssets.setCellFactory(param -> new ListCell<String>() {
                 private final HBox content = new HBox();
                 private final Label lblName = new Label();
@@ -148,7 +195,7 @@ public class SidebarController {
                             Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
                             alert.setTitle("Suppression");
                             alert.setHeaderText("Supprimer " + assetId + " ?");
-                            alert.setContentText("Confirmer suppression ?");
+                            alert.setContentText("Confirmer la suppression définitive ?");
 
                             alert.showAndWait().ifPresent(response -> {
                                 if (response == ButtonType.OK) {
@@ -182,6 +229,7 @@ public class SidebarController {
             });
         }
 
+        // Configuration visuelle de la liste des Alertes
         if (listAlerts != null) {
             listAlerts.setCellFactory(param -> new ListCell<String>() {
                 @Override
@@ -191,14 +239,14 @@ public class SidebarController {
                         setText(null);
                         setStyle("");
                     } else {
-                        // Strip icons
+                        // Nettoyage des icônes pour affichage propre
                         String cleanText = item.replaceAll("[⚠️⛔ℹ️🚩🔄?]", "").trim();
                         if (cleanText.startsWith(":"))
                             cleanText = cleanText.substring(1).trim();
 
                         setText(cleanText);
                         setWrapText(true);
-                        // Red Background and Dark Red Text
+                        // Style Critique (Fond Rouge clair)
                         setStyle(
                                 "-fx-background-color: #ffcccc; -fx-text-fill: #900000; -fx-padding: 5px; -fx-border-width: 0 0 1 0; -fx-border-color: #ffaaaa;");
                     }
@@ -206,6 +254,8 @@ public class SidebarController {
             });
         }
     }
+
+    // --- Gestion des Actions Utilisateur ---
 
     private void handleStartMission() {
         if (selectedAsset == null)
@@ -233,8 +283,7 @@ public class SidebarController {
                 addAlert("Mission reprise: " + m.getTitre());
                 break;
             case EN_COURS:
-                // Already running
-                break;
+                break; // Rien à faire
         }
         updateDetails(selectedAsset);
     }
@@ -256,8 +305,8 @@ public class SidebarController {
 
     private void handleRecharge() {
         if (selectedAsset != null) {
-            selectedAsset.recharger(); // Resets autonomie & state
-            updateDetails(selectedAsset); // Refresh UI
+            selectedAsset.recharger(); // Réinitialise l'autonomie et l'état
+            updateDetails(selectedAsset); // Rafraîchissement UI immédiat
         }
     }
 
@@ -268,10 +317,15 @@ public class SidebarController {
         }
     }
 
+    /**
+     * Rafraîchit l'ensemble du panneau latéral.
+     * Met à jour la liste des actifs et les détails de l'actif sélectionné.
+     */
     public void refresh() {
         if (gestionnaire == null)
             return;
 
+        // Mise à jour de la liste si changement dans la flotte
         List<String> currentIds = gestionnaire.getFlotte().stream().map(ActifMobile::getId)
                 .collect(Collectors.toList());
         if (!currentIds.equals(listAssets.getItems())) {
@@ -287,13 +341,18 @@ public class SidebarController {
         }
     }
 
+    /**
+     * Sélectionne programmatiquement des actifs dans la liste latérale.
+     * Utilisé pour la synchronisation depuis la Carte vers la Sidebar.
+     *
+     * @param assets La liste des actifs à sélectionner.
+     */
     public void selectAssets(List<ActifMobile> assets) {
         if (listAssets == null)
             return;
 
         isUpdatingSelection = true;
         try {
-            // Robust selection handling
             List<String> allIds = listAssets.getItems();
 
             if (assets == null || assets.isEmpty()) {
@@ -303,7 +362,7 @@ public class SidebarController {
                 this.selectedAsset = null;
                 clearDetails();
             } else {
-                // Determine indices to select
+                // Trouve les indices correspondants
                 int[] indices = assets.stream()
                         .map(ActifMobile::getId)
                         .mapToInt(id -> allIds.indexOf(id))
@@ -311,7 +370,6 @@ public class SidebarController {
                         .toArray();
 
                 if (indices.length > 0) {
-                    // Use atomic selectIndices if possible
                     if (!listAssets.getSelectionModel().getSelectedItems().isEmpty()) {
                         listAssets.getSelectionModel().clearSelection();
                     }
@@ -319,7 +377,6 @@ public class SidebarController {
                     if (indices.length == 1) {
                         listAssets.getSelectionModel().select(indices[0]);
                     } else {
-                        // Varargs helper
                         int first = indices[0];
                         int[] rest = new int[indices.length - 1];
                         System.arraycopy(indices, 1, rest, 0, rest.length);
@@ -338,7 +395,6 @@ public class SidebarController {
                 }
             }
         } catch (Exception e) {
-            // Prevent UI Thread crash
             System.err.println("Safely caught UI Selection exception: " + e.getMessage());
         } finally {
             isUpdatingSelection = false;
@@ -357,6 +413,11 @@ public class SidebarController {
         listAssets.getItems().setAll(currentIds);
     }
 
+    /**
+     * Met à jour les widgets de détails avec les données de l'actif.
+     *
+     * @param asset L'actif à afficher.
+     */
     private void updateDetails(ActifMobile asset) {
         if (asset == null) {
             clearDetails();
@@ -372,8 +433,9 @@ public class SidebarController {
             if (lblType != null)
                 lblType.setText("Type: " + asset.getClass().getSimpleName());
 
+            // Mise à jour État et Couleurs
             if (lblState != null) {
-                lblState.setText("State: " + asset.getState());
+                lblState.setText("Etat: " + asset.getState());
                 if (asset.getState() == ActifMobile.AssetState.LOW_BATTERY
                         || asset.getState() == ActifMobile.AssetState.STOPPED) {
                     lblState.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
@@ -383,6 +445,8 @@ public class SidebarController {
                     lblState.setStyle("-fx-text-fill: black;");
                 }
             }
+
+            // Batterie
             if (progressBattery != null) {
                 double pct = asset.getBatteryPercent();
                 progressBattery.setProgress(pct);
@@ -394,16 +458,15 @@ public class SidebarController {
                 else
                     progressBattery.setStyle("-fx-accent: red;");
             }
-
             if (lblBatteryPct != null) {
-                double pct = asset.getBatteryPercent();
-                lblBatteryPct.setText(String.format("%.0f%%", pct * 100));
+                lblBatteryPct.setText(String.format("%.0f%%", asset.getBatteryPercent() * 100));
             }
 
             if (lblPosition != null) {
                 lblPosition.setText(String.format("X:%.0f Y:%.0f Z:%.0f", asset.getX(), asset.getY(), asset.getZ()));
             }
 
+            // Combobox Missions
             if (cmbMissions != null) {
                 isUpdatingDetails = true;
                 try {
@@ -425,27 +488,28 @@ public class SidebarController {
                 }
             }
 
+            // Badge Statut Mission
             com.spiga.management.Mission m = asset.getCurrentMission();
             if (m != null) {
                 if (lblMissionStatusBadge != null) {
                     lblMissionStatusBadge.setText(m.getStatut().toString());
-                    String colorStyle = "-fx-background-color: #ddd;"; // Default Gray
+                    String colorStyle = "-fx-background-color: #ddd;"; // Gris
                     switch (m.getStatut()) {
                         case EN_COURS:
                             colorStyle = "-fx-background-color: #3B82F6; -fx-text-fill: white;";
-                            break; // Blue
+                            break; // Bleu
                         case TERMINEE:
                             colorStyle = "-fx-background-color: #22C55E; -fx-text-fill: white;";
-                            break; // Green
+                            break; // Vert
                         case ECHOUEE:
                             colorStyle = "-fx-background-color: #EF4444; -fx-text-fill: white;";
-                            break; // Red
+                            break; // Rouge
                         case ANNULEE:
                             colorStyle = "-fx-background-color: #F97316; -fx-text-fill: white;";
                             break; // Orange
                         case PAUSED:
                             colorStyle = "-fx-background-color: #F59E0B; -fx-text-fill: white;";
-                            break; // Amber
+                            break; // Ambre
                         default:
                             break;
                     }
@@ -453,6 +517,7 @@ public class SidebarController {
                             colorStyle + " -fx-background-radius: 3; -fx-padding: 2 5; -fx-font-size: 9px;");
                 }
 
+                // Boutons Mission
                 if (btnStartMission != null) {
                     switch (m.getStatut()) {
                         case PAUSED:
@@ -485,6 +550,7 @@ public class SidebarController {
                 }
 
             } else {
+                // Pas de mission active
                 if (cmbMissions != null)
                     cmbMissions.getSelectionModel().clearSelection();
                 if (lblMissionStatusBadge != null) {

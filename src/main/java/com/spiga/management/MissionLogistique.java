@@ -1,19 +1,28 @@
 package com.spiga.management;
 
 /**
- * MissionLogistique - Mission logistique
- * Conforme a SPIGA-SPEC.txt section 3.2
- * 
- * Concept : Polymorphisme (Missions)
- * Cette classe est une forme specifique de "Mission".
+ * Implémentation concrète d'une mission de logistique.
+ * <p>
+ * Spécialisée pour le transport et la livraison. Utilisée par les
+ * {@link com.spiga.core.DroneLogistique}.
+ * </p>
  */
 public class MissionLogistique extends Mission {
 
+    /**
+     * Crée une mission de logistique.
+     * 
+     * @param titre Nom de la mission.
+     */
     public MissionLogistique(String titre) {
         super(titre, MissionType.LOGISTICS);
         this.objectives = "Transport et livraison de matériel";
     }
 
+    /**
+     * Clone la mission.
+     * Pattern Prototype pour dupliquer une mission existante.
+     */
     @Override
     public Mission copy() {
         MissionLogistique m = new MissionLogistique(this.titre);

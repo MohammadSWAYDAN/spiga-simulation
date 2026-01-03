@@ -20,67 +20,89 @@ import javafx.animation.ScaleTransition;
 import javafx.util.Duration;
 
 /**
- * Représentation graphique d'un actif (Node) dans le MapPane.
- * Remplace le dessin Canvas par un objet interactif.
+ * Représentation Graphique d'un Actif (Node) dans l'interface JavaFX.
+ * <p>
+ * Cette classe étend {@link StackPane} pour encapsuler la forme géométrique,
+ * les effets visuels (ombres, zones de détection) et les labels d'un actif.
+ * Elle remplace l'ancien système de dessin sur Canvas pour offrir plus
+ * d'interactivité (clic, hover).
+ * </p>
+ *
+ * @author Equipe SPIGA
+ * @version 1.0
  */
 public class AssetNode extends StackPane {
 
+    /** L'actif mobile associé (Modèle). */
     private final ActifMobile asset;
-    private final Shape mainShape;
-    private final Label label;
-    private final DropShadow glowEffect;
-    private final ScaleTransition hoverAnimation;
-    private final Circle avoidanceCircle; // New visual indicator
 
+    /** La forme principale représentant l'actif (Triangle, Cercle, etc.). */
+    private final Shape mainShape;
+
+    /** Label affichant l'identifiant de l'actif. */
+    private final Label label;
+
+    /** Effet d'ombre pour le relief et la sélection. */
+    private final DropShadow glowEffect;
+
+    /** Animation de survol (agrandissement). */
+    private final ScaleTransition hoverAnimation;
+
+    /** Indicateur visuel d'évitement (cercle rouge pointillé). */
+    private final Circle avoidanceCircle;
+
+    /**
+     * Construit un nouveau nœud graphique pour un actif donné.
+     * Configure la forme, les couleurs et les interactions souris.
+     *
+     * @param asset L'actif mobile à représenter.
+     */
     public AssetNode(ActifMobile asset) {
         this.asset = asset;
         this.glowEffect = new DropShadow(10, Color.BLACK);
 
-        // 1. Create Zone (Detection/Safety Range)
-        Circle zoneCircle = new Circle(40); // Radius 40 (visual)
-        zoneCircle.setFill(Color.rgb(255, 255, 255, 0.1)); // Transparent white
+        // 1. Zone de Détection / Sécurité (Visuel uniquement)
+        // Représente le rayon de sécurité autour de l'actif
+        Circle zoneCircle = new Circle(40); // Rayon visuel 40
+        zoneCircle.setFill(Color.rgb(255, 255, 255, 0.1)); // Blanc transparent
         zoneCircle.setStroke(Color.rgb(255, 255, 255, 0.3));
         zoneCircle.getStrokeDashArray().addAll(5.0, 5.0);
-        // zoneCircle.setMouseTransparent(true); // User wants easier selection, so let
-        // zone captures clicks
 
-        // 2. Create Shape based on type
+        // 2. Création de la forme selon le type d'actif
         this.mainShape = createShape();
         this.mainShape.setEffect(glowEffect);
 
-        // 3. Label
+        // 3. Label d'identification
         this.label = new Label(asset.getId());
         this.label.setFont(Font.font("Arial", FontWeight.BOLD, 10));
         this.label.setTextFill(Color.WHITE);
         this.label.setTranslateY(15);
 
-        // Label Background
+        // Fond du Label (pour lisibilité)
         Rectangle labelBg = new Rectangle(label.getText().length() * 6 + 10, 14);
         labelBg.setArcWidth(5);
         labelBg.setArcHeight(5);
         labelBg.setFill(Color.rgb(0, 0, 0, 0.6));
         labelBg.setTranslateY(15);
 
-        // 3b. Create Avoidance Indicator (Initially hidden)
+        // 3b. Indicateur d'évitement (Caché par défaut)
         this.avoidanceCircle = new Circle(25);
         this.avoidanceCircle.setFill(Color.TRANSPARENT);
         this.avoidanceCircle.setStroke(Color.RED);
         this.avoidanceCircle.setStrokeWidth(3);
-        this.avoidanceCircle.getStrokeDashArray().addAll(10d, 5d); // Dashed line
+        this.avoidanceCircle.getStrokeDashArray().addAll(10d, 5d); // Pointillés
         this.avoidanceCircle.setVisible(false);
 
-        // 4. Assemble
-        // StackPane centers everything: Zone (Back), Shape (Mid), Labels (Front)
-        // We want detection zone ONLY if it makes sense (e.g. Drone) or visually cool
-        // for all.
-        // User said "restore zone around drone".
+        // 4. Assemblage
+        // StackPane centre tout : Zone (Fond), Forme (Milieu), Labels (Devant)
+        // On affiche la zone de détection principalement pour les drones aériens
         if (asset instanceof ActifAerien || asset instanceof DroneLogistique) {
             this.getChildren().addAll(zoneCircle, avoidanceCircle, mainShape, labelBg, label);
         } else {
             this.getChildren().addAll(avoidanceCircle, mainShape, labelBg, label);
         }
 
-        // 4. Interactivity (Hover)
+        // 4. Interactivité (Animation au survol souris)
         this.hoverAnimation = new ScaleTransition(Duration.millis(200), this);
         this.hoverAnimation.setFromX(1.0);
         this.hoverAnimation.setFromY(1.0);
@@ -97,16 +119,21 @@ public class AssetNode extends StackPane {
             hoverAnimation.play();
         });
 
-        // Initial Style
+        // Style initial
         updateStyle();
     }
 
+    /**
+     * Crée la forme géométrique adaptée au type d'actif.
+     *
+     * @return Une forme JavaFX (Polygon, Rectangle, Circle).
+     */
     private Shape createShape() {
         Shape shape;
         double size = 10.0;
 
         if (asset instanceof ActifAerien) {
-            // Triangle
+            // Triangle pour les aéronefs
             Polygon triangle = new Polygon();
             triangle.getPoints().addAll(
                     0.0, -size,
@@ -115,7 +142,7 @@ public class AssetNode extends StackPane {
             shape = triangle;
             shape.setFill(Color.RED);
         } else if (asset instanceof VehiculeSurface) {
-            // Boat shape approximation
+            // Forme de coque pour les bateaux
             Polygon boat = new Polygon();
             boat.getPoints().addAll(
                     -size, 0.0,
@@ -125,17 +152,18 @@ public class AssetNode extends StackPane {
             shape = boat;
             shape.setFill(Color.BLUE);
         } else if (asset instanceof VehiculeSousMarin) {
-            // Submarine (Capsule/Oval)
+            // Rectangle arrondi pour les sous-marins
             shape = new Rectangle(20, 10);
             ((Rectangle) shape).setArcWidth(10);
             ((Rectangle) shape).setArcHeight(10);
             shape.setFill(Color.GREEN);
         } else {
-            // Default Circle
+            // Cercle par défaut
             shape = new Circle(size);
             shape.setFill(Color.GRAY);
         }
 
+        // Couleur spécifique pour la logistique (Jaune)
         if (asset instanceof DroneLogistique) {
             shape.setFill(Color.YELLOW);
         }
@@ -145,25 +173,25 @@ public class AssetNode extends StackPane {
         return shape;
     }
 
+    /**
+     * Met à jour la position et le style visuel de l'actif.
+     * Appelé à chaque frame par {@link MapPane}.
+     *
+     * @param scale Le facteur d'échelle actuel de la carte pour le positionnement.
+     */
     public void update(double scale) {
-        // Position update
-        this.setLayoutX(asset.getX() * scale - this.getWidth() / 2); // Center pivot roughly (layoutX is top-left)
-        // Better: MapPane should handle precise positioning or we use setTranslate?
-        // Let's use relate coordinates. Actually Pane uses layoutX/Y.
-
-        // Note: For StackPane, layoutX points to top-left corner.
-        // We want center at X,Y.
-        // But getWidth() might be 0 until layout pass.
-        // So we translate -10 (approx half size) or rely on MapPane alignment
-        // management.
-        // Simpler: Just position top-left relative to center offset.
+        // Mise à jour position écran (LayoutX/Y)
         this.setLayoutX(asset.getX() * scale);
         this.setLayoutY(asset.getY() * scale);
 
-        // Status updates (Color changes etc)
+        // Mise à jour couleurs et indicateurs
         updateStyle();
     }
 
+    /**
+     * Met à jour l'apparence selon l'état de l'actif (Batterie faible, Arrêt,
+     * Evitement).
+     */
     private void updateStyle() {
         if (asset.getState() == ActifMobile.AssetState.LOW_BATTERY) {
             mainShape.setStroke(Color.ORANGE);
@@ -173,20 +201,20 @@ public class AssetNode extends StackPane {
             mainShape.setStroke(Color.WHITE);
         }
 
-        // Avoidance Visual Feedback
+        // Feedback Visuel d'Evitement
         if (asset.getNavigationMode() == ActifMobile.NavigationMode.AVOIDING ||
                 (asset.getCollisionWarning() != null && !asset.getCollisionWarning().isEmpty())) {
             avoidanceCircle.setVisible(true);
-            // Optional: Rotate animation could be nice here, but static red dash is clear
-            // enough
         } else {
             avoidanceCircle.setVisible(false);
         }
-
-        // Selection highlight handled by parent or effect?
-        // We can expose a method setSelection(boolean)
     }
 
+    /**
+     * Applique ou retire l'effet de surbrillance de sélection.
+     *
+     * @param selected Vrai si l'actif est sélectionné.
+     */
     public void setSelected(boolean selected) {
         if (selected) {
             glowEffect.setColor(Color.CYAN);
@@ -197,6 +225,11 @@ public class AssetNode extends StackPane {
         }
     }
 
+    /**
+     * Récupère l'actif mobile associé à ce noeud graphique.
+     * 
+     * @return L'instance {@link ActifMobile}.
+     */
     public ActifMobile getAsset() {
         return asset;
     }

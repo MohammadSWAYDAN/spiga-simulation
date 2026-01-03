@@ -20,20 +20,19 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Controleur de Creation de Missions
+ * Contrôleur de Gestion des Missions (Création et Liste).
  * 
- * CONCEPTS CLES :
- * 
- * 1. Logique d'Interaction :
- * - C'est quoi ? Guider l'utilisateur.
- * - Exemple : La methode handleSetTarget ouvre une boite de dialogue (Dialog)
- * pour demander des choix complexes.
- * 
- * 2. Validation Metier (Business Logic) :
- * - C'est quoi ? Empecher l'utilisateur de faire des betises.
- * - Ou ? validatePhysicalConstraints verifie qu'on n'envoie pas un sous-marin
- * dans les nuages !
- * C'est une protection essentielle dans tout logiciel professionnel.
+ * <h3>CONCEPTS CLÉS :</h3>
+ * <ul>
+ * <li><b>Logique d'Interaction :</b> Guide l'utilisateur via des dialogues
+ * modaux pour définir des coordonnées complexes.</li>
+ * <li><b>Validation Métier (Business Logic) :</b> Vérifie la cohérence des
+ * ordres avant exécution (ex: {@link #validatePhysicalConstraints}
+ * empêche un sous-marin de valider une cible aérienne).</li>
+ * </ul>
+ *
+ * @author Equipe SPIGA
+ * @version 1.0
  */
 public class MissionController {
 
@@ -41,11 +40,10 @@ public class MissionController {
     private ListView<Mission> listMissions;
     @FXML
     private TextField txtMissionTitle;
-    // ComboBox removed
     @FXML
     private Label lblMissionStatus;
     @FXML
-    private TextField txtDuration; // New Duration Field
+    private TextField txtDuration; // Nouveau champ durée
     @FXML
     private Label lblTargetCoords;
     @FXML
@@ -55,6 +53,8 @@ public class MissionController {
 
     private GestionnaireEssaim gestionnaire;
     private MainController mainController;
+
+    // Coordonnées temporaires pour la création
     private double startX = 0, startY = 0, startZ = 0;
     private double targetX = 500, targetY = 500, targetZ = 0;
     private boolean useCurrentPosition = true;
@@ -69,6 +69,7 @@ public class MissionController {
 
     @FXML
     public void initialize() {
+        // Configuration de la liste des missions (Affichage personnalisé)
         if (listMissions != null) {
             listMissions.setCellFactory(param -> new ListCell<Mission>() {
                 private final javafx.scene.layout.VBox root = new javafx.scene.layout.VBox();
@@ -76,7 +77,7 @@ public class MissionController {
                 private final Label lblDetails = new Label();
 
                 {
-                    root.setSpacing(2); // Tight stacking
+                    root.setSpacing(2);
                     root.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
                     root.setPadding(new Insets(5));
 
@@ -93,10 +94,10 @@ public class MissionController {
                         setGraphic(null);
                         setText(null);
                     } else {
-                        // Title
+                        // Titre
                         lblName.setText(item.getTitre());
 
-                        // Details: Drone Name(s) | Target
+                        // Détails: Nom Actif | Cible
                         String droneNames = "Aucun";
                         if (item.getAssignedAssets() != null && !item.getAssignedAssets().isEmpty()) {
                             droneNames = item.getAssignedAssets().stream()
@@ -113,26 +114,25 @@ public class MissionController {
                         setText(null);
                     }
                 }
-            }); // Close anonymous class and method call
-        } // Close if (listMissions != null)
+            });
+        }
 
-        // Listen for selection
+        // Écouteur de sélection dans la liste
         listMissions.getSelectionModel().selectedItemProperty().addListener(
                 (obs, oldVal, newVal) -> {
                     if (newVal != null) {
                         lblMissionStatus.setText("Sélectionné: " + newVal.getTitre());
-                        // Target marker removed as requested
                     } else {
                         lblMissionStatus.setText("Sélectionné: -");
-                        // Target marker removed as requested
                     }
                 });
         updateTargetLabel();
 
-        // Context Menu for Restart/Cancel
+        // Menu Contextuel (Clic Droit) : Relancer / Annuler
         ContextMenu ctxMenu = new ContextMenu();
         MenuItem restartItem = new MenuItem("Relancer Mission");
         MenuItem cancelItem = new MenuItem("Annuler Mission");
+
         restartItem.setOnAction(e -> {
             Mission m = listMissions.getSelectionModel().getSelectedItem();
             if (m != null) {
@@ -156,9 +156,13 @@ public class MissionController {
     }
 
     public void onAssetSelected(ActifMobile asset) {
-        // Logic moved to Creation time
+        // Logique déplacée au moment de la création
     }
 
+    /**
+     * Gère le clic sur "Définir Cible". Ouvre un dialogue pour choisir entre
+     * le mode Curseur (clic carte) ou Saisie Manuelle.
+     */
     @FXML
     private void handleSetTarget() {
         if (mainController != null) {
@@ -192,6 +196,10 @@ public class MissionController {
         }
     }
 
+    /**
+     * Affiche un dialogue complexe pour la saisie manuelle des coordonnées A
+     * (Départ) et B (Arrivée).
+     */
     private void promptForManualCoordinates() {
         Dialog<double[]> dialog = new Dialog<>();
         dialog.setTitle("Coordonnées de Mission");
@@ -274,6 +282,11 @@ public class MissionController {
         });
     }
 
+    /**
+     * Action associée au bouton "Créer Mission".
+     * Instancie la mission, l'assigne aux actifs sélectionnés après validation,
+     * et l'ajoute au gestionnaire.
+     */
     @FXML
     private void handleCreateMission() {
         if (gestionnaire == null || mainController == null)
@@ -292,7 +305,7 @@ public class MissionController {
             return;
         }
 
-        // Auto-detect type based on FIRST selected asset
+        // Détection automatique du type de mission selon le premier actif sélectionné
         ActifMobile firstAsset = selectedAssets.get(0);
         Mission mission = null;
 
@@ -305,30 +318,30 @@ public class MissionController {
         } else if (firstAsset instanceof VehiculeSousMarin) {
             mission = new MissionLogistique(title + " (Sous-marin)");
         } else {
-            mission = new MissionLogistique(title); // Fallback
+            mission = new MissionLogistique(title); // Par défaut
         }
 
         mission.setTarget(targetX, targetY, targetZ);
 
-        // Parse Duration
-        long duration = 180; // Default
+        // Parsing Durée
+        long duration = 180; // Par défaut 3 min
         if (txtDuration != null && !txtDuration.getText().isEmpty()) {
             try {
                 duration = Long.parseLong(txtDuration.getText());
             } catch (NumberFormatException e) {
-                // Ignore, use default
+                // Ignorer, garder défaut
             }
         }
         mission.setPlannedDurationSeconds(duration);
 
-        // Immediate Assignment & Start
+        // Validation & Lancement
         if (!validatePhysicalConstraints(selectedAssets, targetZ))
             return;
 
-        // Use Manager to start properly
+        // Démarrage via le Gestionnaire (qui gère l'état initial)
         gestionnaire.demarrerMission(mission, selectedAssets);
 
-        mainController.refreshSidebar(); // Update UI
+        mainController.refreshSidebar(); // Mise à jour UI
         if (listMissions != null)
             listMissions.getItems().add(mission);
 
@@ -343,6 +356,13 @@ public class MissionController {
             mainController.disableMissionTargetMode();
     }
 
+    /**
+     * Vérifie la compatibilité physique entre l'actif et la cible (Z notamment).
+     *
+     * @param assets  Liste des actifs à vérifier.
+     * @param targetZ Altitude/Profondeur cible.
+     * @return true si tout est valide, false sinon (avec alerte affichée).
+     */
     private boolean validatePhysicalConstraints(List<ActifMobile> assets, double targetZ) {
         for (ActifMobile asset : assets) {
             if (asset instanceof ActifAerien) {
@@ -369,6 +389,7 @@ public class MissionController {
         this.targetX = x;
         this.targetY = y;
 
+        // Pré-remplissage intelligent du Z
         List<ActifMobile> selected = mainController.getSelectedAssets();
         String defaultZ = "0";
         if (!selected.isEmpty()) {
@@ -403,13 +424,10 @@ public class MissionController {
         if (lblTargetCoords != null) {
             lblTargetCoords.setText(String.format("%.0f, %.0f", x, y));
         }
-        // Store for mission creation using existing fields
         this.targetX = x;
         this.targetY = y;
         this.targetZ = z;
     }
-
-    // Removed redundant currentTargetX/Y/Z fields
 
     private void updateTargetLabel() {
         if (lblTargetCoords != null) {
