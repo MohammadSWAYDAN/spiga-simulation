@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.ArrayList;
 
 /**
-<<<<<<< HEAD
  * MainTestCLI - Interface Console SPIGA
  *
  * Interface Console (CLI) permettant d'effectuer toutes les operations
@@ -41,60 +40,6 @@ public class MainTestCLI {
 
     /** Liste de toutes les missions creees pour la gestion interactive. */
     private static List<Mission> allMissions = new ArrayList<>();
-=======
- * Interface en Ligne de Commande (CLI) pour la validation technique.
- * <p>
- * Cette classe permet de tester isolément la logique métier de la simulation
- * sans passer
- * par l'interface graphique JavaFX complète (bien que le toolkit soit
- * initialisé pour les timers).
- * Elle propose plusieurs scénarios prédéfinis pour valider les comportements
- * des entités :
- * </p>
- * <ul>
- * <li>Missions et déplacements manuels.</li>
- * <li>Gestion de la batterie et recharge.</li>
- * <li>Respect des contraintes physiques (altitude, profondeur).</li>
- * <li>Gestion des zones interdites (refus ou évitement).</li>
- * <li>Impact des conditions météorologiques (vent, pluie, vagues).</li>
- * </ul>
- *
- * @author Equipe SPIGA
- * @version 1.0
- */
-public class MainTestCLI {
-
-    /** Le gestionnaire central de l'essaim (flotte d'actifs). */
-    private static GestionnaireEssaim gestionnaire;
-
-    /**
-     * Le service de simulation responsable de la boucle temporelle et de la
-     * physique.
-     */
-    private static SimulationService service;
-
-    /** Scanner pour la saisie utilisateur dans la console. */
-    private static Scanner scanner;
-
-    /**
-     * Indicateur de l'état d'initialisation du toolkit JavaFX (nécessaire pour
-     * {@code AnimationTimer}).
-     */
-    private static boolean isJavaFxInitialized = false;
-
-    /**
-     * Point d'entrée du mode CLI.
-     * <p>
-     * Initialise l'environnement (JavaFX, Services), lance la boucle de menu
-     * principale,
-     * et gère la sélection des scénarios.
-     * </p>
-     *
-     * @param args Arguments de ligne de commande (non utilisés).
-     */
-    public static void main(String[] args) {
-        System.out.println("INITIALISATION DE L'ENVIRONNEMENT DE TEST...");
->>>>>>> 8d792a7f2571e1788f23b9efa0d3e769e349ec7d
 
     /** Compteur auto-increment pour generer les IDs d'actifs. */
     private static int assetCounter = 1;
@@ -155,12 +100,24 @@ public class MainTestCLI {
             try {
                 int choix = Integer.parseInt(input);
                 switch (choix) {
-                    case 1: menuGestionActifs(); break;
-                    case 2: menuGestionMissions(); break;
-                    case 3: menuAffichageEtats(); break;
-                    case 4: menuSimulation(); break;
-                    case 5: menuMeteo(); break;
-                    case 6: menuScenariosTest(); break;
+                    case 1:
+                        menuGestionActifs();
+                        break;
+                    case 2:
+                        menuGestionMissions();
+                        break;
+                    case 3:
+                        menuAffichageEtats();
+                        break;
+                    case 4:
+                        menuSimulation();
+                        break;
+                    case 5:
+                        menuMeteo();
+                        break;
+                    case 6:
+                        menuScenariosTest();
+                        break;
                     case 0:
                         running = false;
                         System.out.println("\nFermeture du CLI SPIGA. Au revoir!");
@@ -178,7 +135,6 @@ public class MainTestCLI {
         System.exit(0);
     }
 
-<<<<<<< HEAD
     // ==================================================================================
     // MENU PRINCIPAL
     // ==================================================================================
@@ -186,10 +142,6 @@ public class MainTestCLI {
     /**
      * Affiche le menu principal avec les options disponibles.
      * Options : Gestion actifs, Missions, Etats, Simulation, Meteo, Scenarios.
-=======
-    /**
-     * Affiche le menu principal des scénarios disponibles.
->>>>>>> 8d792a7f2571e1788f23b9efa0d3e769e349ec7d
      */
     private static void afficherMenuPrincipal() {
         System.out.println("\n============== MENU PRINCIPAL ==============");
@@ -203,7 +155,6 @@ public class MainTestCLI {
         System.out.println("=============================================");
     }
 
-<<<<<<< HEAD
     // ==================================================================================
     // 1. GESTION DES ACTIFS
     // ==================================================================================
@@ -232,15 +183,32 @@ public class MainTestCLI {
             try {
                 int choix = Integer.parseInt(input);
                 switch (choix) {
-                    case 1: creerActif(); break;
-                    case 2: listerActifs(); break;
-                    case 3: supprimerActif(); break;
-                    case 4: demarrerActif(); break;
-                    case 5: eteindreActif(); break;
-                    case 6: rechargerActif(); break;
-                    case 7: deplacerActif(); break;
-                    case 0: continuer = false; break;
-                    default: System.out.println("[ERREUR] Choix invalide.");
+                    case 1:
+                        creerActif();
+                        break;
+                    case 2:
+                        listerActifs();
+                        break;
+                    case 3:
+                        supprimerActif();
+                        break;
+                    case 4:
+                        demarrerActif();
+                        break;
+                    case 5:
+                        eteindreActif();
+                        break;
+                    case 6:
+                        rechargerActif();
+                        break;
+                    case 7:
+                        deplacerActif();
+                        break;
+                    case 0:
+                        continuer = false;
+                        break;
+                    default:
+                        System.out.println("[ERREUR] Choix invalide.");
                 }
             } catch (NumberFormatException e) {
                 System.out.println("[ERREUR] Veuillez entrer un numero.");
@@ -267,10 +235,21 @@ public class MainTestCLI {
         try {
             int type = Integer.parseInt(scanner.nextLine().trim());
 
-            System.out.print("> ID de l'actif (Entree pour auto) : ");
-            String id = scanner.nextLine().trim();
-            if (id.isEmpty()) {
-                id = "ACTIF-" + String.format("%03d", assetCounter++);
+            String id;
+            while (true) {
+                System.out.print("> ID de l'actif (Entree pour auto) : ");
+                id = scanner.nextLine().trim();
+                if (id.isEmpty()) {
+                    id = "ACTIF-" + String.format("%03d", assetCounter++);
+                }
+
+                // Vérifier si l'ID existe déjà
+                if (trouverActif(id) != null) {
+                    System.out.println(
+                            "[ERREUR] Un actif avec l'ID '" + id + "' existe deja. Veuillez choisir un autre ID.");
+                } else {
+                    break; // ID valide, sortir de la boucle
+                }
             }
 
             System.out.print("> Position X (defaut 0) : ");
@@ -285,7 +264,8 @@ public class MainTestCLI {
                     System.out.print("> Altitude Z (defaut 100) : ");
                     double zRecon = lireDouble(100);
                     actif = new DroneReconnaissance(id, x, y, zRecon);
-                    System.out.println("[OK] DroneReconnaissance '" + id + "' cree a (" + x + ", " + y + ", " + zRecon + ")");
+                    System.out.println(
+                            "[OK] DroneReconnaissance '" + id + "' cree a (" + x + ", " + y + ", " + zRecon + ")");
                     break;
                 case 2:
                     System.out.print("> Altitude Z (defaut 50) : ");
@@ -300,16 +280,20 @@ public class MainTestCLI {
                 case 4:
                     System.out.print("> Profondeur Z (defaut -50) : ");
                     double zSub = lireDouble(-50);
-                    if (zSub > 0) zSub = -zSub;
+                    if (zSub > 0)
+                        zSub = -zSub;
                     actif = new VehiculeSousMarin(id, x, y, zSub);
-                    System.out.println("[OK] VehiculeSousMarin '" + id + "' cree a (" + x + ", " + y + ", " + zSub + ")");
+                    System.out
+                            .println("[OK] VehiculeSousMarin '" + id + "' cree a (" + x + ", " + y + ", " + zSub + ")");
                     break;
                 case 5:
                     System.out.print("> Profondeur Z (defaut -50) : ");
                     double zExplore = lireDouble(-50);
-                    if (zExplore > 0) zExplore = -zExplore;
+                    if (zExplore > 0)
+                        zExplore = -zExplore;
                     actif = new SousMarinExploration(id, x, y, zExplore);
-                    System.out.println("[OK] SousMarinExploration '" + id + "' cree a (" + x + ", " + y + ", " + zExplore + ")");
+                    System.out.println(
+                            "[OK] SousMarinExploration '" + id + "' cree a (" + x + ", " + y + ", " + zExplore + ")");
                     break;
                 default:
                     System.out.println("[ERREUR] Type invalide.");
@@ -480,16 +464,35 @@ public class MainTestCLI {
             try {
                 int choix = Integer.parseInt(input);
                 switch (choix) {
-                    case 1: creerMission(); break;
-                    case 2: listerMissions(); break;
-                    case 3: assignerMission(); break;
-                    case 4: demarrerMission(); break;
-                    case 5: pauseMission(); break;
-                    case 6: resumeMission(); break;
-                    case 7: annulerMission(); break;
-                    case 8: voirHistoriqueMissions(); break;
-                    case 0: continuer = false; break;
-                    default: System.out.println("[ERREUR] Choix invalide.");
+                    case 1:
+                        creerMission();
+                        break;
+                    case 2:
+                        listerMissions();
+                        break;
+                    case 3:
+                        assignerMission();
+                        break;
+                    case 4:
+                        demarrerMission();
+                        break;
+                    case 5:
+                        pauseMission();
+                        break;
+                    case 6:
+                        resumeMission();
+                        break;
+                    case 7:
+                        annulerMission();
+                        break;
+                    case 8:
+                        voirHistoriqueMissions();
+                        break;
+                    case 0:
+                        continuer = false;
+                        break;
+                    default:
+                        System.out.println("[ERREUR] Choix invalide.");
                 }
             } catch (NumberFormatException e) {
                 System.out.println("[ERREUR] Veuillez entrer un numero.");
@@ -692,7 +695,8 @@ public class MainTestCLI {
         if (idx >= 0 && idx < allMissions.size()) {
             System.out.print("> Raison : ");
             String raison = scanner.nextLine().trim();
-            if (raison.isEmpty()) raison = "Annulation utilisateur";
+            if (raison.isEmpty())
+                raison = "Annulation utilisateur";
             allMissions.get(idx).cancel(raison);
             System.out.println("[OK] Mission annulee.");
         } else {
@@ -747,16 +751,35 @@ public class MainTestCLI {
             try {
                 int choix = Integer.parseInt(input);
                 switch (choix) {
-                    case 1: afficherEtatFlotte(); break;
-                    case 2: afficherDetailsActif(); break;
-                    case 3: afficherActifsDisponibles(); break;
-                    case 4: afficherActifsEnPanne(); break;
-                    case 5: afficherMissionsEnCours(); break;
-                    case 6: afficherMeteoActuelle(); break;
-                    case 7: afficherZonesInterdites(); break;
-                    case 8: afficherObstacles(); break;
-                    case 0: continuer = false; break;
-                    default: System.out.println("[ERREUR] Choix invalide.");
+                    case 1:
+                        afficherEtatFlotte();
+                        break;
+                    case 2:
+                        afficherDetailsActif();
+                        break;
+                    case 3:
+                        afficherActifsDisponibles();
+                        break;
+                    case 4:
+                        afficherActifsEnPanne();
+                        break;
+                    case 5:
+                        afficherMissionsEnCours();
+                        break;
+                    case 6:
+                        afficherMeteoActuelle();
+                        break;
+                    case 7:
+                        afficherZonesInterdites();
+                        break;
+                    case 8:
+                        afficherObstacles();
+                        break;
+                    case 0:
+                        continuer = false;
+                        break;
+                    default:
+                        System.out.println("[ERREUR] Choix invalide.");
                 }
             } catch (NumberFormatException e) {
                 System.out.println("[ERREUR] Veuillez entrer un numero.");
@@ -781,14 +804,25 @@ public class MainTestCLI {
 
         for (ActifMobile actif : flotte) {
             switch (actif.getEtat()) {
-                case AU_SOL: auSol++; break;
-                case EN_MISSION: enMission++; break;
-                case EN_MAINTENANCE: enMaintenance++; break;
-                case EN_PANNE: enPanne++; break;
+                case AU_SOL:
+                    auSol++;
+                    break;
+                case EN_MISSION:
+                    enMission++;
+                    break;
+                case EN_MAINTENANCE:
+                    enMaintenance++;
+                    break;
+                case EN_PANNE:
+                    enPanne++;
+                    break;
             }
-            if (actif instanceof DroneReconnaissance || actif instanceof DroneLogistique) drones++;
-            else if (actif instanceof VehiculeSurface) navires++;
-            else if (actif instanceof VehiculeSousMarin || actif instanceof SousMarinExploration) sousMarin++;
+            if (actif instanceof DroneReconnaissance || actif instanceof DroneLogistique)
+                drones++;
+            else if (actif instanceof VehiculeSurface)
+                navires++;
+            else if (actif instanceof VehiculeSousMarin || actif instanceof SousMarinExploration)
+                sousMarin++;
         }
 
         System.out.println("Total: " + flotte.size() + " actifs");
@@ -822,7 +856,8 @@ public class MainTestCLI {
             System.out.println("\n--- " + actif.getId() + " ---");
             System.out.println("Type: " + actif.getClass().getSimpleName());
             System.out.println("Position: (" + actif.getX() + ", " + actif.getY() + ", " + actif.getZ() + ")");
-            System.out.println("Cible: (" + actif.getTargetX() + ", " + actif.getTargetY() + ", " + actif.getTargetZ() + ")");
+            System.out.println(
+                    "Cible: (" + actif.getTargetX() + ", " + actif.getTargetY() + ", " + actif.getTargetZ() + ")");
             System.out.println("Vitesse max: " + actif.getVitesseMax() + " m/s");
             System.out.println("Vitesse actuelle: " + String.format("%.2f", actif.getCurrentSpeed()) + " m/s");
             System.out.println("Batterie: " + String.format("%.1f%%", actif.getBatteryPercent() * 100));
@@ -866,7 +901,8 @@ public class MainTestCLI {
                 found = true;
             }
         }
-        if (!found) System.out.println("[INFO] Aucun actif en panne.");
+        if (!found)
+            System.out.println("[INFO] Aucun actif en panne.");
     }
 
     /**
@@ -881,7 +917,8 @@ public class MainTestCLI {
                 found = true;
             }
         }
-        if (!found) System.out.println("[INFO] Aucune mission en cours.");
+        if (!found)
+            System.out.println("[INFO] Aucune mission en cours.");
     }
 
     /**
@@ -949,7 +986,9 @@ public class MainTestCLI {
             try {
                 int choix = Integer.parseInt(input);
                 switch (choix) {
-                    case 1: executerSimulationInteractive(); break;
+                    case 1:
+                        executerSimulationInteractive();
+                        break;
                     case 2:
                         System.out.print("> Echelle (1.0 = temps reel) : ");
                         service.setTimeScale(lireDouble(1.0));
@@ -959,8 +998,11 @@ public class MainTestCLI {
                         resetSimulationComplete();
                         System.out.println("[OK] Simulation reinitialisee.");
                         break;
-                    case 0: continuer = false; break;
-                    default: System.out.println("[ERREUR] Choix invalide.");
+                    case 0:
+                        continuer = false;
+                        break;
+                    default:
+                        System.out.println("[ERREUR] Choix invalide.");
                 }
             } catch (NumberFormatException e) {
                 System.out.println("[ERREUR] Veuillez entrer un numero.");
@@ -978,7 +1020,8 @@ public class MainTestCLI {
         int logInterval = (int) lireDouble(2);
 
         System.out.println("\n--- SIMULATION (" + duree + "s) ---\n");
-        executerBoucle(duree, (t, s) -> {}, logInterval);
+        executerBoucle(duree, (t, s) -> {
+        }, logInterval);
         System.out.println("\n--- FIN ---");
     }
 
@@ -1048,9 +1091,14 @@ public class MainTestCLI {
                         w.setWaveIntensity(0.6);
                         System.out.println("[OK] Tempete.");
                         break;
-                    case 6: afficherMeteoActuelle(); break;
-                    case 0: continuer = false; break;
-                    default: System.out.println("[ERREUR] Choix invalide.");
+                    case 6:
+                        afficherMeteoActuelle();
+                        break;
+                    case 0:
+                        continuer = false;
+                        break;
+                    default:
+                        System.out.println("[ERREUR] Choix invalide.");
                 }
             } catch (NumberFormatException e) {
                 System.out.println("[ERREUR] Veuillez entrer un numero.");
@@ -1083,11 +1131,18 @@ public class MainTestCLI {
             try {
                 int choix = Integer.parseInt(input);
                 switch (choix) {
-                    case 1: case 2: case 3: case 4: case 5:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
                         lancerScenario(choix);
                         break;
-                    case 0: continuer = false; break;
-                    default: System.out.println("[ERREUR] Choix invalide.");
+                    case 0:
+                        continuer = false;
+                        break;
+                    default:
+                        System.out.println("[ERREUR] Choix invalide.");
                 }
             } catch (NumberFormatException e) {
                 System.out.println("[ERREUR] Veuillez entrer un numero.");
@@ -1152,7 +1207,8 @@ public class MainTestCLI {
      */
     private static double lireDouble(double defaut) {
         String input = scanner.nextLine().trim();
-        if (input.isEmpty()) return defaut;
+        if (input.isEmpty())
+            return defaut;
         try {
             return Double.parseDouble(input);
         } catch (NumberFormatException e) {
@@ -1163,7 +1219,7 @@ public class MainTestCLI {
     // ==================================================================================
     // CODE ORIGINAL - SCENARIOS ET BOUCLE
     // ==================================================================================
-=======
+
     /**
      * Réinitialise complètement l'état de la simulation.
      * <p>
@@ -1171,7 +1227,6 @@ public class MainTestCLI {
      * pour garantir un environnement propre avant chaque scénario.
      * </p>
      */
->>>>>>> 8d792a7f2571e1788f23b9efa0d3e769e349ec7d
     private static void resetSimulation() {
         gestionnaire.getFlotte().clear();
         service.reset();
