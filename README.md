@@ -1,172 +1,119 @@
-# Projet de Simulation SPIGA (JavaFX)
+# 🚁 SPIGA Simulation
+> **S**ystème de **P**ilotage **I**ntelligent & **G**estion d'**A**ctifs
 
-## 1. Vue d'Ensemble du Projet
-**SPIGA** (Système de Pilotage Intelligent et Gestion d'Actifs) est une simulation orientée objet complexe construite en **Java 21** utilisant **JavaFX**.
-Elle simule un environnement multi-domaines (Aérien, Surface, Sous-marin) où des drones et navires autonomes exécutent des missions, interagissent avec l'environnement (Météo, Obstacles) et sont gérés par une logique d'essaim centralisée.
+![Java](https://img.shields.io/badge/Java-17%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![JavaFX](https://img.shields.io/badge/JavaFX-17-007396?style=for-the-badge&logo=java&logoColor=white)
+![Maven](https://img.shields.io/badge/Maven-3.6%2B-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-Ce projet démontre des concepts avancés de **Programmation Orientée Objet (POO)** et de **développement d'interfaces graphiques (GUI)** en temps réel.
+## 📋 Overview
 
----
+**SPIGA Simulation** is a high-fidelity multi-agent simulation engine capable of orchestrating complex interactions between autonomous aerial drones and naval assets. Designed with a focus on real-time physics and swarm intelligence, SPIGA provides a robust environment for testing coordination algorithms, pathfinding strategies, and mission management protocols in dynamic conditions.
 
-## 2. Architecture Technique : Modèle MVC
-
-L'application suit strictement le modèle de conception **Modèle-Vue-Contrôleur (MVC)** pour garantir la séparation des responsabilités.
-
-### 2.1 Modèle (Données & Logique)
-Situé dans `com.spiga.core`, `com.spiga.management` et `com.spiga.environment`.
-- **Responsabilités** : Définit les entités (Drones, Navires), leur physique, l'état de l'environnement et les règles métier (Missions).
-- **Concepts Clés** : Héritage, Polymorphisme, Encapsulation.
-
-### 2.2 Vue (Visualisation)
-Situé dans `com.spiga.ui` et `src/main/resources`.
-- **Responsabilités** : Affiche l'état potentiel du modèle à l'utilisateur.
-- **Composants** :
-    - Fichiers FXML : Définissent la mise en page.
-    - `MapCanvas` : Affiche la vue de dessus (Top-Down X, Y).
-    - `SideViewCanvas` : Affiche la vue de profil (Altitude/Profondeur).
-- **Concepts Clés** : Dessin 2D (Canvas), Transformation de Coordonnées, Gestion d'Événements.
-
-### 2.3 Contrôleur (Orchestration)
-Situé dans `com.spiga.ui`.
-- **Responsabilités** : Fait le lien entre la Vue et le Modèle. Gère les entrées utilisateur (clics, touches) et met à jour le Modèle.
-- **Composants** : `MainController`, `MissionController`, `SidebarController`.
-- **Concepts Clés** : Injection de Dépendances (`@FXML`), Listeners, Threading.
+The system features a dual-interface architecture: a high-performance **CLI** for headless batch processing and a rich **JavaFX GUI** for real-time visualization and interactive control.
 
 ---
 
-## 3. Analyse des Packages et Classes
+## ✨ Key Features
 
-### 📦 `com.spiga.core` (Le Modèle de Domaine)
-Ce package contient les entités fondamentales de la simulation.
+### 🧠 Advanced Swarm Intelligence
+- **Collision Avoidance**: Real-time proximity detection and vector-based avoidance maneuvers.
+- **Target Deconfliction**: Cooperative algorithm to prevent multiple agents from converging on the same exact coordinate.
+- **Formation Logistics**: Efficient handling of swarm movements and spacing.
 
-*   **`ActifMobile` (Classe Abstraite)** : La racine de la hiérarchie. Représente tout actif mobile. Gère les IDs uniques, la position (x, y, z) et les méthodes de mouvement abstraites.
-*   **`ActifAerien` (Classe Abstraite)** : Hérite de `ActifMobile`. Ajoute la physique aérienne (Altitude max, consommation générique).
-*   **`ActifMarin` (Classe Abstraite)** : Hérite de `ActifMobile`. Ajoute la physique marine (Profondeur, contraintes aquatiques).
-*   **`Pilotable`, `Deplacable` (Interfaces)** : Définissent des contrats stricts pour le contrôle (démarrer/arrêter) et le calcul de mouvement, forçant le polymorphisme.
-*   **Classes Concrètes** :
-    *   `DroneReconnaissance` : Rapide, grande portée de surveillance.
-    *   `DroneLogistique` : Transporte du fret, plus lent.
-    *   `VehiculeSurface` (Abstrait) : Parent pour les navires de surface (Z=0 fixe).
-    *   `NavirePatrouille`, `NavireLogistique`, `NavireRecherche` : Implémentations spécifiques de navires.
-    *   `VehiculeSousMarin` : Parent pour les unités sous-marines.
-    *   `SousMarinAttaque`, `SousMarinExploration` : Implémentations spécifiques de sous-marins.
+### 🌍 Dynamic Environment
+- **3D Spatial Awareness**: Simulation handles 3D coordinates (X, Y, Altitude/Depth).
+- **Obstacle Simulation**: Varied terrain including Surface Islands, Underwater Reefs, and Aerial Constraints.
+- **Restricted Zones**: "No-Fly" and "No-Sail" zones with soft-boundary warnings and hard-boundary enforcement.
+- **Weather System**: Variable wind speeds and conditions affecting asset performance.
 
-### 📦 `com.spiga.management` (Logique Métier)
-Gère le "Cerveau" de la simulation.
+### 🎮 Mission Management
+- **Automated Dispatch**: Intelligent assignment of missions (Reconnaissance, Logistics, Surveillance) to available assets.
+- **Asset Classes**:
+  - **Drones**: `Reconnaissance` (Agile, Zone-Permissive), `Logistique` (Heavy, Zone-Restricted).
+  - **Naval**: `Surface Vessel`, `Exploration Submarine`.
 
-*   **`GestionnaireEssaim`** : Le gestionnaire de collection personnalisé. Détient la liste de toutes les unités actives (`List<ActifMobile>`). Fournit des méthodes pour ajouter, supprimer et interroger des unités.
-*   **`SimulationService`** : Le moteur.
-    *   Contient la **Boucle de Simulation** (Game Loop).
-    *   Met à jour l'état de chaque unité 60 fois par seconde.
-    *   Gère le temps (`SimulationTimer`).
-*   **`Mission` (Hiérarchie)** :
-    *   Classe de base abstraite pour l'assignation des tâches.
-    *   Sous-classes : `MissionSurveillance`, `MissionLogistique`, `MissionRechercheEtSauvetage`.
-*   **`Communication`** : Simule un bus de messages entre le QG et les unités. Utilise l'association pour répartir les missions aux actifs appropriés.
-
-### 📦 `com.spiga.ui` (Interface Utilisateur)
-*   **`MainController`** : Le point d'entrée pour la logique UI. Initialise la simulation et lie les Canvas au Service.
-*   **`MissionController`** : Logique spécialisée pour la fenêtre de dialogue "Créer Mission". Valide les entrées (ex: empêche d'assigner un sous-marin à une cible en haute altitude).
-*   **`SidebarController`** : Met à jour le panneau de détails. Utilise `Platform.runLater()` pour mettre à jour l'UI en toute sécurité depuis le thread de simulation.
-*   **`MapCanvas` / `SideViewCanvas`** : Composants de dessin personnalisés qui surchargent `LayoutChildren` ou `draw()` pour rendre l'état de la simulation graphiquement.
-
-### 📦 `com.spiga.environment` (Contexte Environnemental)
-*   **`Weather`** : État global (Singleton) contenant la Vitesse du Vent, la Direction et la Pluie. Affecte les batteries des drones et le mouvement.
-*   **`Obstacle`** : Objets statiques dans le monde. Les unités doivent les éviter (Détection de Collision).
-*   **`RestrictedZone`** : Zones d'exclusion cylindriques définies par (X, Y, Rayon) et limites de Hauteur.
+### 🖥️ Dual-Mode Interface
+- **Graphical User Interface (GUI)**:
+  - Real-time map rendering with zoom/pan.
+  - Interactive mission creation and asset monitoring.
+  - Live telemetry dashboard (Battery, Speed, GPS).
+- **Command Line Interface (CLI)**:
+  - Lightweight mode for automated testing and server environments.
 
 ---
 
-## 4. Diagramme de Hiérarchie des Classes (Mermaid)
+## 🛠️ Architecture
 
-```mermaid
-classDiagram
-    class ActifMobile {
-        <<Abstrait>>
-        #String id
-        #double x, y, z
-        +deplacer()
-    }
-    class ActifAerien {
-        <<Abstrait>>
-        #double altitudeMax
-    }
-    class ActifMarin {
-        <<Abstrait>>
-        #double profondeurMax
-    }
-    class VehiculeSurface {
-        <<Abstrait>>
-    }
-    class VehiculeSousMarin {
-        <<Abstrait>>
-    }
+The project follows a modular **MVC** (Model-View-Controller) architecture:
 
-    ActifMobile <|-- ActifAerien
-    ActifMobile <|-- ActifMarin
+| Package | Description |
+| :--- | :--- |
+| `com.spiga.core` | Core simulation engine, physics calculations, and asset definitions. |
+| `com.spiga.management` | High-level logic for swarm coordination and mission dispatching. |
+| `com.spiga.environment` | World entities including Obstacles, Weather, and Restricted Zones. |
+| `com.spiga.ui` | JavaFX controllers and FXML views for the graphical interface. |
 
-    ActifAerien <|-- DroneReconnaissance
-    ActifAerien <|-- DroneLogistique
+---
 
-    ActifMarin <|-- VehiculeSurface
-    ActifMarin <|-- VehiculeSousMarin
+## 🚀 Getting Started
 
-    VehiculeSurface <|-- NavirePatrouille
-    VehiculeSurface <|-- NavireLogistique
-    VehiculeSurface <|-- NavireRecherche
+### Prerequisites
+- **Java Development Kit (JDK) 17** or higher.
+- **Apache Maven 3.6** or higher.
 
-    VehiculeSousMarin <|-- SousMarinAttaque
-    VehiculeSousMarin <|-- SousMarinExploration
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/MohammadSWAYDAN/spiga-simulation.git
+   cd spiga-simulation
+   ```
+
+2. **Build the project**
+   ```bash
+   mvn clean install
+   ```
+
+---
+
+## 🏃 Usage
+
+### Running the GUI (Default)
+Launch the full interactive simulation with the dashboard:
+```bash
+mvn javafx:run
+```
+
+### Running the CLI (Headless)
+Execute the simulation in console mode for logs and debugging:
+```bash
+mvn javafx:run -Djavafx.args="--cli"
+```
+*Alternatively, if running the built JAR:*
+```bash
+java -jar target/spiga-simulation-1.0-SNAPSHOT.jar --cli
 ```
 
 ---
 
-## 5. Approfondissement Technique
+## 🤝 Contributing
 
-### 5.1 La Boucle de Simulation
-Le cœur de la simulation tourne sur un `AnimationTimer` (JavaFX).
-*   **Cycle** :
-    1.  `handle(long now)` est appelé (~60fps).
-    2.  `SimulationService` met à jour le modèle :
-        *   Itère sur tous les `ActifMobile`.
-        *   Calcule les nouvelles positions basées sur la vitesse, la direction et **l'Impact Météo**.
-        *   Vérifie les collisions (`Obstacle`, `RestrictedZone`).
-        *   Met à jour les niveaux de batterie/carburant.
-    3.  `MainController` demande un redessin de `MapCanvas` et `SideViewCanvas`.
-
-### 5.2 Système de Coordonnées & Projection
-*   **Coordonnées Monde** : Mètres réels (Virgule flottante).
-    *   X, Y : Plan horizontal.
-    *   Z : Altitude (+) / Profondeur (-).
-*   **Coordonnées Écran** : Pixels (Entiers).
-    *   **Vue Carte** : Mapping direct `EcranX = MondeX * Echelle`.
-    *   **Vue Profil** : Projection orthogonale.
-        *   Axe X = Distance depuis l'origine/caméra.
-        *   Axe Y = Z Mappé (L'altitude est vers le HAUT, mais le Y écran est vers le BAS, donc une inversion est appliquée).
-
-### 5.3 Modèle de Threading
-*   **Thread UI (FX Application Thread)** : Gère le rendu et les événements utilisateur.
-*   **Logique** : Tourne actuellement sur le même thread/timer pour la simplicité dans cette version, mais `Platform.runLater()` est strictement utilisé dans `SidebarController` pour garantir la sécurité des threads si la logique passait en arrière-plan.
+Contributions are welcome! Please follow these steps:
+1. Fork the project.
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
 
 ---
 
-## 6. Installation & Exécution
+## 📄 License
 
-### Prérequis
-*   **Java 21** SDK
-*   **Maven** 3.8+
+Distributed under the MIT License. See `LICENSE` for more information.
 
-### Comment Lancer
-1.  **Compiler** :
-    ```bash
-    ./mvnw clean compile
-    ```
-2.  **Exécuter** :
-    ```bash
-    ./mvnw javafx:run
-    ```
+---
 
-### Comment Modifier
-*   **Ajouter un nouveau Drone** : Créer une classe héritant de `ActifAerien` dans `com.spiga.core`.
-*   **Ajouter une nouvelle Mission** : Hériter de `Mission` dans `com.spiga.management`.
-*   **Changer l'interface** : Modifier `MainView.fxml` et mettre à jour `MainController`.
+<p align="center">
+  <i>Developed by the SPIGA Team • 2025-2026</i>
+</p>
