@@ -115,5 +115,5 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ---
 
 <p align="center">
-  <i>Developed by the SPIGA Team • 2024-2025</i>
+  <i>Developed by the SPIGA Team • 2025-2026</i>
 </p>
